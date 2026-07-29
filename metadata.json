@@ -1,0 +1,1 @@
+{"name":"NextBuild","description":"Student job-search tool that analyzes GitHub profiles and resumes against target job postings to generate actionable build roadmaps.","requestFramePermissions":[],"majorCapabilities":["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]}

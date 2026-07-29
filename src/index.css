@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --color-blueprint-navy: #10253F;
+  --color-drafting-blue: #3D6FB4;
+  --color-chalk-paper: #F2F0E6;
+  --color-signal-amber: #F2A93B;
+  --color-slate-fog: #7C93AC;
+  --color-verified-green: #4FA87B;
+  --color-muted-red: #C4634F;
+}
+
+/* Custom blueprint background texture */
+.blueprint-grid {
+  background-color: #10253F;
+  background-image: 
+    linear-gradient(rgba(61, 111, 180, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(61, 111, 180, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Focus style specification */
+*:focus-visible {
+  outline: 2px dashed #F2A93B !important;
+  outline-offset: 3px !important;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Utility classes for fonts as requested */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono-data {
+  font-family: var(--font-mono);
+}
+
