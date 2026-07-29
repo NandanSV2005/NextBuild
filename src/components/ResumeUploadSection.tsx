@@ -134,7 +134,11 @@ export const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
               </div>
 
               <div className="p-3 bg-[#10253F] border border-[#3D6FB4]/40 rounded text-xs font-body text-[#7C93AC] flex items-center justify-between">
-                <span>Resume parsed: Alex Chen • B.S. Computer Science • Full-Stack Stack</span>
+                <span>
+                  Resume parsed: {selectedResume === SAMPLE_RESUME_FILENAME
+                    ? 'Alex Chen • B.S. Computer Science • Full-Stack Stack'
+                    : `${selectedResume} • Parsed Tech Competencies & Experience Entries`}
+                </span>
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}

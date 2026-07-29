@@ -181,7 +181,7 @@ app.post("/api/github/analyze", async (req, res) => {
 
     // Fetch public repositories from official GitHub REST API (up to 100 repos)
     try {
-      const ghRes = await fetch(`https://api.github.com/users/${cleanUsername}/repos?sort=updated&per_page=100`, {
+      const ghRes = await fetch(`https://api.github.com/users/${cleanUsername}/repos?sort=updated&per_page=100&type=all`, {
         headers: {
           "User-Agent": "NextBuild-App",
           Accept: "application/vnd.github.v3+json",
