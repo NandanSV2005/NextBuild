@@ -16,9 +16,12 @@ import {
   SAMPLE_APPLICATION_PACKAGE,
 } from './data/sampleData';
 import { JobPosting, Repo, ProjectFit, RecommendedProject, ApplicationPackage, ApplicationStatus } from './types';
-import { X, Github, Mail, ShieldCheck, Sparkles, Loader2, ArrowRight } from 'lucide-react';
+import { X, Github, Mail, ShieldCheck, Sparkles, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function App() {
+  // Page Navigation State ('intake' or 'results')
+  const [activePage, setActivePage] = useState<'intake' | 'results'>('intake');
+
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
   const [connectedGithubUser, setConnectedGithubUser] = useState<string | null>(null);
@@ -93,9 +96,11 @@ export default function App() {
     setCurrentJob(job);
   };
 
-  // Manual Trigger Handler
+  // Manual Trigger Handler: Opens dedicated Results Page and runs analysis
   const handleStartProcess = () => {
+    setActivePage('results');
     setHasAnalyzed(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     const activeRepos = repos.length > 0 ? repos : SAMPLE_REPOS;
     runFullAnalysis(activeRepos, currentJob);
   };
@@ -201,7 +206,9 @@ export default function App() {
     <div className="min-h-screen bg-[#10253F] text-[#F2F0E6] flex flex-col font-body selection:bg-[#F2A93B] selection:text-[#10253F]">
       {/* Navbar */}
       <Navbar
-        onGetStartedClick={handleScrollToResume}
+        activePage={activePage}
+        hasAnalyzed={hasAnalyzed}
+        onNavigate={setActivePage}
         onSignInClick={() => setSignInModalOpen(true)}
       />
 
@@ -215,111 +222,147 @@ export default function App() {
 
       {/* Main Content Sections */}
       <main className="flex-1">
-        {/* Section 2: Hero */}
-        <HeroSection onGetStartedClick={handleScrollToResume} />
+        {activePage === 'intake' ? (
+          <>
+            {/* Section 2: Hero */}
+            <HeroSection onGetStartedClick={handleScrollToResume} />
 
-        {/* Section 3: Step 1 - Resume Upload */}
-        <ResumeUploadSection
-          selectedResume={selectedResume}
-          onResumeChange={handleResumeChange}
-          onUseSample={handleUseSampleResume}
-        />
+            {/* Section 3: Step 1 - Resume Upload */}
+            <ResumeUploadSection
+              selectedResume={selectedResume}
+              onResumeChange={handleResumeChange}
+              onUseSample={handleUseSampleResume}
+            />
 
-        {/* Section 4: Step 2 - GitHub Connect */}
-        <GithubConnectSection
-          connectedUser={connectedGithubUser}
-          repos={repos}
-          onConnect={handleConnectGithub}
-          onDisconnect={handleDisconnectGithub}
-        />
+            {/* Section 4: Step 2 - GitHub Connect */}
+            <GithubConnectSection
+              connectedUser={connectedGithubUser}
+              repos={repos}
+              onConnect={handleConnectGithub}
+              onDisconnect={handleDisconnectGithub}
+            />
 
-        {/* Section 5: Step 3 - Job Description */}
-        <JobDescriptionSection
-          currentJob={currentJob}
-          onSelectJob={handleSelectJob}
-        />
+            {/* Section 5: Step 3 - Job Description */}
+            <JobDescriptionSection
+              currentJob={currentJob}
+              onSelectJob={handleSelectJob}
+            />
 
-        {/* Section 6: Action Step — Trigger Process */}
-        <section className="w-full py-10 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
-          <div className="max-w-4xl mx-auto space-y-4">
-            <div className="flex items-center space-x-2">
-              <span className="font-body text-xs font-semibold uppercase tracking-widest text-[#F2A93B]">
-                Step 4 — Generate Plan
-              </span>
-              <div className="h-[1px] flex-1 bg-[#F2A93B]/40" />
-            </div>
+            {/* Section 6: Action Step — Trigger Process */}
+            <section className="w-full py-10 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="flex items-center space-x-2">
+                  <span className="font-body text-xs font-semibold uppercase tracking-widest text-[#F2A93B]">
+                    Step 4 — Generate Plan
+                  </span>
+                  <div className="h-[1px] flex-1 bg-[#F2A93B]/40" />
+                </div>
 
-            <div className="bg-[#10253F] border-2 border-[#F2A93B] rounded-lg p-6 sm:p-8 space-y-6 shadow-xl text-center">
-              <div className="max-w-2xl mx-auto space-y-2">
-                <h3 className="font-display font-bold text-2xl sm:text-3xl text-[#F2F0E6]">
-                  Ready to Analyze Your Build Plan?
-                </h3>
-                <p className="font-body text-sm sm:text-base text-[#7C93AC]">
-                  Once you've uploaded your resume, connected your GitHub profile, and selected your target job posting, click below to evaluate your match score and generate a custom build roadmap.
-                </p>
+                <div className="bg-[#10253F] border-2 border-[#F2A93B] rounded-lg p-6 sm:p-8 space-y-6 shadow-xl text-center">
+                  <div className="max-w-2xl mx-auto space-y-2">
+                    <h3 className="font-display font-bold text-2xl sm:text-3xl text-[#F2F0E6]">
+                      Ready to Analyze Your Build Plan?
+                    </h3>
+                    <p className="font-body text-sm sm:text-base text-[#7C93AC]">
+                      Once you've uploaded your resume, connected your GitHub profile, and selected your target job posting, click below to open your custom build plan on a dedicated results page.
+                    </p>
+                  </div>
+
+                  {/* Input Readiness Indicators */}
+                  <div className="flex flex-wrap items-center justify-center gap-3 py-2 text-xs font-mono-data">
+                    <span className={`px-3 py-1 rounded-full border ${selectedResume ? 'bg-[#4FA87B]/20 text-[#4FA87B] border-[#4FA87B]/40 font-semibold' : 'bg-[#3D6FB4]/20 text-[#7C93AC] border-[#3D6FB4]'}`}>
+                      {selectedResume ? `✓ Resume: ${selectedResume}` : 'Resume: Sample Ready'}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full border ${connectedGithubUser ? 'bg-[#4FA87B]/20 text-[#4FA87B] border-[#4FA87B]/40 font-semibold' : 'bg-[#3D6FB4]/20 text-[#7C93AC] border-[#3D6FB4]'}`}>
+                      {connectedGithubUser ? `✓ GitHub: @${connectedGithubUser}` : 'GitHub: Sample Ready'}
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-[#4FA87B]/20 text-[#4FA87B] border border-[#4FA87B]/40 font-semibold">
+                      ✓ Job: {currentJob.company} — {currentJob.title.split(' ')[0]}
+                    </span>
+                  </div>
+
+                  {/* Primary Action Button */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleStartProcess}
+                      disabled={isAnalyzing}
+                      className="inline-flex items-center space-x-2 bg-[#F2A93B] hover:bg-[#f5b857] text-[#10253F] font-body font-bold text-base sm:text-lg px-8 py-4 rounded-md transition-all shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50"
+                    >
+                      <Sparkles className="w-5 h-5 text-[#10253F]" />
+                      <span>Analyze Fit & Generate Build Plan</span>
+                      <ArrowRight className="w-5 h-5 text-[#10253F]" />
+                    </button>
+                  </div>
+                </div>
               </div>
+            </section>
+          </>
+        ) : (
+          /* Dedicated Results Page View */
+          <div className="w-full">
+            {/* Page Header Bar */}
+            <section className="w-full py-8 px-4 sm:px-6 lg:px-8 bg-[#10253F] border-b border-[#3D6FB4]/30">
+              <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <span className="font-body text-xs font-semibold uppercase tracking-widest text-[#F2A93B]">
+                      Analysis Results
+                    </span>
+                    <span className="text-[#3D6FB4]">•</span>
+                    <span className="font-mono-data text-xs text-[#7C93AC]">
+                      {currentJob.company} — {currentJob.title}
+                    </span>
+                  </div>
+                  <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#F2F0E6]">
+                    Your Customized Build Plan & Fit Rating
+                  </h1>
+                </div>
 
-              {/* Input Readiness Indicators */}
-              <div className="flex flex-wrap items-center justify-center gap-3 py-2 text-xs font-mono-data">
-                <span className={`px-3 py-1 rounded-full border ${selectedResume ? 'bg-[#4FA87B]/20 text-[#4FA87B] border-[#4FA87B]/40 font-semibold' : 'bg-[#3D6FB4]/20 text-[#7C93AC] border-[#3D6FB4]'}`}>
-                  {selectedResume ? `✓ Resume: ${selectedResume}` : 'Resume: Sample Ready'}
-                </span>
-                <span className={`px-3 py-1 rounded-full border ${connectedGithubUser ? 'bg-[#4FA87B]/20 text-[#4FA87B] border-[#4FA87B]/40 font-semibold' : 'bg-[#3D6FB4]/20 text-[#7C93AC] border-[#3D6FB4]'}`}>
-                  {connectedGithubUser ? `✓ GitHub: @${connectedGithubUser}` : 'GitHub: Sample Ready'}
-                </span>
-                <span className="px-3 py-1 rounded-full bg-[#4FA87B]/20 text-[#4FA87B] border border-[#4FA87B]/40 font-semibold">
-                  ✓ Job: {currentJob.company} — {currentJob.title.split(' ')[0]}
-                </span>
-              </div>
-
-              {/* Primary Action Button */}
-              <div>
                 <button
                   type="button"
-                  onClick={handleStartProcess}
-                  disabled={isAnalyzing}
-                  className="inline-flex items-center space-x-2 bg-[#F2A93B] hover:bg-[#f5b857] text-[#10253F] font-body font-bold text-base sm:text-lg px-8 py-4 rounded-md transition-all shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50"
+                  onClick={() => setActivePage('intake')}
+                  className="inline-flex items-center space-x-2 bg-[#3D6FB4]/20 hover:bg-[#3D6FB4]/40 text-[#F2F0E6] border border-[#3D6FB4] px-4 py-2 rounded text-xs font-body font-semibold transition-colors cursor-pointer shrink-0"
                 >
-                  <Sparkles className="w-5 h-5 text-[#10253F]" />
-                  <span>Analyze Fit & Generate Build Plan</span>
-                  <ArrowRight className="w-5 h-5 text-[#10253F]" />
+                  <ArrowLeft className="w-4 h-4 text-[#F2A93B]" />
+                  <span>Modify Inputs (Intake Form)</span>
                 </button>
               </div>
-            </div>
+            </section>
+
+            {/* Loading Card during active analysis */}
+            {isAnalyzing && (
+              <section className="w-full py-16 px-4 sm:px-6 lg:px-8 bg-[#3D6FB4]/10 border-b border-[#3D6FB4]/30">
+                <div className="max-w-2xl mx-auto bg-[#10253F] border border-[#F2A93B] rounded-lg p-8 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden blueprint-grid">
+                  <div className="flex justify-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-[#F2A93B]" />
+                  </div>
+                  <h4 className="font-display font-bold text-xl sm:text-2xl text-[#F2F0E6]">
+                    Evaluating Candidate Portfolio & Building Roadmap
+                  </h4>
+                  <p className="font-mono-data text-xs sm:text-sm text-[#F2A93B]">
+                    {analysisStatusText || 'Gemini AI Engine is processing project repositories...'}
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {/* Results Content */}
+            <FitAnalysisSection
+              overallScore={overallScore}
+              verdict={verdict}
+              projectFits={projectFits}
+            />
+
+            <RoadmapSection recommendedProjects={recommendedProjects} />
+
+            <ApplicationPackageSection
+              appPackage={appPackage}
+              currentStatus={applicationStatus}
+              onStatusChange={setApplicationStatus}
+            />
           </div>
-        </section>
-
-        {/* Section 7: Loading Card during active analysis */}
-        {isAnalyzing && (
-          <section className="w-full py-12 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
-            <div className="max-w-2xl mx-auto bg-[#10253F] border border-[#F2A93B] rounded-lg p-8 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden blueprint-grid">
-              <div className="flex justify-center">
-                <Loader2 className="w-10 h-10 animate-spin text-[#F2A93B]" />
-              </div>
-              <h4 className="font-display font-bold text-xl sm:text-2xl text-[#F2F0E6]">
-                Evaluating Candidate Portfolio & Building Roadmap
-              </h4>
-              <p className="font-mono-data text-xs sm:text-sm text-[#F2A93B]">
-                {analysisStatusText || 'Gemini AI Engine is analyzing repositories...'}
-              </p>
-            </div>
-          </section>
         )}
-
-        {/* Section 8, 9, 10: Always rendered Results Sections (No Blank Screen) */}
-        <FitAnalysisSection
-          overallScore={overallScore}
-          verdict={verdict}
-          projectFits={projectFits}
-        />
-
-        <RoadmapSection recommendedProjects={recommendedProjects} />
-
-        <ApplicationPackageSection
-          appPackage={appPackage}
-          currentStatus={applicationStatus}
-          onStatusChange={setApplicationStatus}
-        />
       </main>
 
       {/* Blueprint Footer */}
