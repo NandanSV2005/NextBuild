@@ -105,9 +105,11 @@ export default function App() {
     setIsAnalyzing(true);
     setAnalysisStatusText(`Running Gemini Fit Engine for ${targetJob.company}...`);
 
+    let companySignal = '';
+    let currentFitAnalysis: any = null;
+
     try {
       // Step 1: Research company signal (optional enrichment)
-      let companySignal = '';
       try {
         const compRes = await fetch('/api/company/research', {
           method: 'POST',
@@ -122,53 +124,69 @@ export default function App() {
 
       // Step 2: Fit Analysis
       setAnalysisStatusText('Evaluating project match against job requirements & company tech stack...');
-      const fitRes = await fetch('/api/analysis/fit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repos: currentRepos, job: targetJob, companyResearch: companySignal }),
-      });
-      const fitData = await fitRes.json();
+      try {
+        const fitRes = await fetch('/api/analysis/fit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repos: currentRepos, job: targetJob, companyResearch: companySignal }),
+        });
+        const fitData = await fitRes.json();
 
-      if (fitData.success && fitData.fitAnalysis) {
-        setOverallScore(fitData.fitAnalysis.overallScore || 75);
-        setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
-        if (Array.isArray(fitData.fitAnalysis.projectFits)) {
-          setProjectFits(fitData.fitAnalysis.projectFits);
+        if (fitData.success && fitData.fitAnalysis) {
+          currentFitAnalysis = fitData.fitAnalysis;
+          setOverallScore(fitData.fitAnalysis.overallScore || 75);
+          setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
+          if (Array.isArray(fitData.fitAnalysis.projectFits) && fitData.fitAnalysis.projectFits.length > 0) {
+            setProjectFits(fitData.fitAnalysis.projectFits);
+          }
         }
+      } catch (e) {
+        console.warn('Fit analysis fetch fallback:', e);
       }
 
       // Step 3: Roadmap Generation
       setAnalysisStatusText('Generating 3-step project build roadmap to close identified skill gaps...');
-      const roadRes = await fetch('/api/roadmap/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job: targetJob, fitAnalysis: fitData.fitAnalysis, companyResearch: companySignal }),
-      });
-      const roadData = await roadRes.json();
-      if (roadData.success && Array.isArray(roadData.recommendedProjects)) {
-        setRecommendedProjects(roadData.recommendedProjects);
+      try {
+        const roadRes = await fetch('/api/roadmap/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job: targetJob, fitAnalysis: currentFitAnalysis, companyResearch: companySignal }),
+        });
+        const roadData = await roadRes.json();
+        if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
+          setRecommendedProjects(roadData.recommendedProjects);
+        }
+      } catch (e) {
+        console.warn('Roadmap generate fetch fallback:', e);
       }
 
       // Step 4: Application Package Generation
       setAnalysisStatusText('Drafting tailored resume highlight & "why this role" blurb...');
-      const pkgRes = await fetch('/api/package/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          job: targetJob,
-          candidateInfo: { candidateName: 'Alex Chen', degree: 'B.S. Computer Science' },
-          fitAnalysis: fitData.fitAnalysis,
-        }),
-      });
-      const pkgData = await pkgRes.json();
-      if (pkgData.success && pkgData.appPackage) {
-        setAppPackage({
-          resumeHighlightSummary: pkgData.appPackage.resumeHighlightSummary || SAMPLE_APPLICATION_PACKAGE.resumeHighlightSummary,
-          whyThisRoleBlurb: pkgData.appPackage.whyThisRoleBlurb || SAMPLE_APPLICATION_PACKAGE.whyThisRoleBlurb,
+      try {
+        const pkgRes = await fetch('/api/package/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job: targetJob,
+            candidateInfo: { candidateName: 'Alex Chen', degree: 'B.S. Computer Science' },
+            fitAnalysis: currentFitAnalysis,
+          }),
         });
+        const pkgData = await pkgRes.json();
+        if (pkgData.success && pkgData.appPackage) {
+          setAppPackage({
+            resumeHighlightSummary: pkgData.appPackage.resumeHighlightSummary || SAMPLE_APPLICATION_PACKAGE.resumeHighlightSummary,
+            whyThisRoleBlurb: pkgData.appPackage.whyThisRoleBlurb || SAMPLE_APPLICATION_PACKAGE.whyThisRoleBlurb,
+          });
+        }
+      } catch (e) {
+        console.warn('Package generate fetch fallback:', e);
       }
-
-      // Generation complete: Reveal results & scroll down smoothly
+    } catch (err) {
+      console.error('Full AI analysis error:', err);
+    } finally {
+      setIsAnalyzing(false);
+      setAnalysisStatusText('');
       setHasAnalyzed(true);
       setTimeout(() => {
         const el = document.getElementById('step-fit');
@@ -176,12 +194,6 @@ export default function App() {
           el.scrollIntoView({ behavior: 'smooth' });
         }
       }, 100);
-    } catch (err) {
-      console.error('Full AI analysis error:', err);
-      setHasAnalyzed(true);
-    } finally {
-      setIsAnalyzing(false);
-      setAnalysisStatusText('');
     }
   };
 
