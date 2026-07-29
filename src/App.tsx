@@ -289,44 +289,37 @@ export default function App() {
           </div>
         </section>
 
-        {/* Section 7, 8, 9: Results (Rendered ONLY after analysis completes) */}
-        {isAnalyzing ? (
-          <section className="w-full py-16 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
+        {/* Section 7: Loading Card during active analysis */}
+        {isAnalyzing && (
+          <section className="w-full py-12 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
             <div className="max-w-2xl mx-auto bg-[#10253F] border border-[#F2A93B] rounded-lg p-8 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden blueprint-grid">
               <div className="flex justify-center">
                 <Loader2 className="w-10 h-10 animate-spin text-[#F2A93B]" />
               </div>
               <h4 className="font-display font-bold text-xl sm:text-2xl text-[#F2F0E6]">
-                Analyzing Candidate Portfolio & Generating Build Roadmap
+                Evaluating Candidate Portfolio & Building Roadmap
               </h4>
               <p className="font-mono-data text-xs sm:text-sm text-[#F2A93B]">
-                {analysisStatusText || 'Gemini AI Engine is processing project repositories...'}
+                {analysisStatusText || 'Gemini AI Engine is analyzing repositories...'}
               </p>
             </div>
           </section>
-        ) : hasAnalyzed ? (
-          <>
-            <FitAnalysisSection
-              overallScore={overallScore}
-              verdict={verdict}
-              projectFits={projectFits}
-            />
-
-            <RoadmapSection recommendedProjects={recommendedProjects} />
-
-            <ApplicationPackageSection
-              appPackage={appPackage}
-              currentStatus={applicationStatus}
-              onStatusChange={setApplicationStatus}
-            />
-          </>
-        ) : (
-          <section className="w-full py-12 px-4 sm:px-6 lg:px-8 text-center text-[#7C93AC] font-body text-sm border-b border-[#3D6FB4]/20">
-            <p className="max-w-xl mx-auto">
-              Complete your inputs in Steps 1–3 above, then click <span className="text-[#F2A93B] font-semibold">"Analyze Fit & Generate Build Plan"</span> to generate your fit analysis rating, project-by-project breakdown, and sequential build roadmap.
-            </p>
-          </section>
         )}
+
+        {/* Section 8, 9, 10: Always rendered Results Sections (No Blank Screen) */}
+        <FitAnalysisSection
+          overallScore={overallScore}
+          verdict={verdict}
+          projectFits={projectFits}
+        />
+
+        <RoadmapSection recommendedProjects={recommendedProjects} />
+
+        <ApplicationPackageSection
+          appPackage={appPackage}
+          currentStatus={applicationStatus}
+          onStatusChange={setApplicationStatus}
+        />
       </main>
 
       {/* Blueprint Footer */}

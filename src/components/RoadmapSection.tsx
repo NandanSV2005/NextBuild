@@ -7,7 +7,11 @@ interface RoadmapSectionProps {
 }
 
 export const RoadmapSection: React.FC<RoadmapSectionProps> = ({ recommendedProjects }) => {
-  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(recommendedProjects[0]?.id || null);
+  const projectsToDisplay = Array.isArray(recommendedProjects) && recommendedProjects.length > 0
+    ? recommendedProjects
+    : SAMPLE_RECOMMENDED_PROJECTS;
+
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(projectsToDisplay[0]?.id || 'rec-1');
 
   const toggleExpand = (id: string) => {
     setExpandedProjectId((prev) => (prev === id ? null : id));
@@ -40,7 +44,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({ recommendedProje
             {/* Dashed connector line across columns */}
             <div className="absolute top-10 left-[15%] right-[15%] h-[2px] border-t-2 border-dashed border-[#3D6FB4]/80 z-0 pointer-events-none" />
 
-            {recommendedProjects.map((project, index) => {
+            {projectsToDisplay.map((project, index) => {
               const isExpanded = expandedProjectId === project.id;
 
               return (
@@ -104,7 +108,7 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({ recommendedProje
 
           {/* Mobile Vertical Stacked List */}
           <div className="lg:hidden flex flex-col space-y-4">
-            {recommendedProjects.map((project, index) => {
+            {projectsToDisplay.map((project, index) => {
               const isExpanded = expandedProjectId === project.id;
 
               return (
