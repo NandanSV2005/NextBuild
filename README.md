@@ -7,7 +7,8 @@ NextBuild is a full-stack web application designed to help software engineering 
 
 <!-- PLACEHOLDER: Main Application Hero Screenshot -->
 <!-- Replace the link below with your screenshot of the NextBuild Hero & Technical Blueprint Interface -->
-![NextBuild Hero Banner](https://via.placeholder.com/1200x500/10253F/F2A93B?text=NextBuild+Technical+Blueprint+Interface+Screenshot)
+<img width="1835" height="996" alt="image" src="https://github.com/user-attachments/assets/2266c50c-11d5-4773-b929-d58d4fa67f81" />
+
 
 ---
 
@@ -32,7 +33,8 @@ Step 1: Upload Resume  -->  Step 2: Connect GitHub  -->  Step 3: Target Job URL 
 <!-- PLACEHOLDER 1: Step 1-3 Workflow Section Screenshot -->
 ### 1. Candidate Input & GitHub Integration
 <!-- Add a screenshot showing the Resume Upload Zone and Connected GitHub Repositories Grid below -->
-![Input & GitHub Repositories Screenshot](https://via.placeholder.com/1000x450/10253F/3D6FB4?text=Resume+Upload+%26+GitHub+Connected+Repos+Grid)
+<img width="1835" height="927" alt="image" src="https://github.com/user-attachments/assets/d0a0eab1-4024-430b-9aba-387270024d01" />
+
 
 ---
 
