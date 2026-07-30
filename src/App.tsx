@@ -7,6 +7,7 @@ import { JobDescriptionSection } from './components/JobDescriptionSection';
 import { FitAnalysisSection } from './components/FitAnalysisSection';
 import { RoadmapSection } from './components/RoadmapSection';
 import { ApplicationPackageSection } from './components/ApplicationPackageSection';
+import { BlueprintLoadingAnimation } from './components/BlueprintLoadingAnimation';
 import {
   SAMPLE_RESUME_FILENAME,
   SAMPLE_REPOS,
@@ -330,21 +331,14 @@ export default function App() {
               </div>
             </section>
 
-            {/* Loading Card during active analysis */}
+            {/* High-Tech Animated Blueprint Loading Screen */}
             {isAnalyzing && (
-              <section className="w-full py-16 px-4 sm:px-6 lg:px-8 bg-[#3D6FB4]/10 border-b border-[#3D6FB4]/30">
-                <div className="max-w-2xl mx-auto bg-[#10253F] border border-[#F2A93B] rounded-lg p-8 sm:p-10 text-center space-y-4 shadow-2xl relative overflow-hidden blueprint-grid">
-                  <div className="flex justify-center">
-                    <Loader2 className="w-10 h-10 animate-spin text-[#F2A93B]" />
-                  </div>
-                  <h4 className="font-display font-bold text-xl sm:text-2xl text-[#F2F0E6]">
-                    Evaluating Candidate Portfolio & Building Roadmap
-                  </h4>
-                  <p className="font-mono-data text-xs sm:text-sm text-[#F2A93B]">
-                    {analysisStatusText || 'Gemini AI Engine is processing project repositories...'}
-                  </p>
-                </div>
-              </section>
+              <BlueprintLoadingAnimation
+                statusText={analysisStatusText}
+                companyName={currentJob.company}
+                githubUser={connectedGithubUser}
+                reposCount={repos.length > 0 ? repos.length : 16}
+              />
             )}
 
             {/* Results Content */}
