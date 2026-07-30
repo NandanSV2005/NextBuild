@@ -356,10 +356,16 @@ Produce:
 }
 
 // 3. Resume/GitHub Consistency Check Function
-export async function checkResumeGithubConsistency(resumeData: any, githubFitAnalysis: any, aiClient?: any): Promise<ConsistencyCheck> {
+export async function checkResumeGithubConsistency(
+  resumeData: any,
+  githubFitAnalysis: any,
+  repos: RepoInput[] = [],
+  aiClient?: any
+): Promise<ConsistencyCheck> {
   const fallback: ConsistencyCheck = {
     overclaimFlags: [],
     missingStrongProjects: [],
+    dateInconsistencies: [],
     overallConsistencyNote: 'Consistency check unavailable — AI service could not be reached.',
   };
 
@@ -373,19 +379,28 @@ export async function checkResumeGithubConsistency(resumeData: any, githubFitAna
       });
     }
 
+    const repoDateEvidence = (repos || []).map((r) => ({
+      name: r.name,
+      firstCommitDate: r.commits && r.commits.length > 0 ? r.commits[r.commits.length - 1].date : null,
+      lastCommitDate: r.commits && r.commits.length > 0 ? r.commits[0].date : null,
+      commitCount: r.commits?.length || 0,
+    }));
+
     const consistencyCheckPrompt = `Cross-check the candidate's resume claims against their actual GitHub evidence. Your job is to catch embellishment and surface strong work that's missing from the resume.
 
 Candidate Resume: ${JSON.stringify(resumeData || {})}
-GitHub Project Analysis: ${JSON.stringify(githubFitAnalysis || {})}
+GitHub Fit Analysis (prose-level project evaluation): ${JSON.stringify(githubFitAnalysis || {})}
+GitHub Repo Date Evidence (real commit dates, use THIS for date comparisons, not the prose above): ${JSON.stringify(repoDateEvidence)}
 
 Check:
 1. Overclaiming: does the resume describe a project (scale, architecture, impact) in a way the actual GitHub repo doesn't support? (e.g., resume says "scalable microservices architecture," repo is a single-file monolith)
 2. Missing wins: does GitHub show a strong, relevant project that ISN'T mentioned on the resume at all? This is a free improvement the student should make.
-3. Consistency of claimed dates/roles: do resume project dates roughly align with the repo's commit history?
+3. Date consistency: compare each resume project's approxDate (and any experienceEntries dates) against that repo's firstCommitDate/lastCommitDate in the Repo Date Evidence above. Flag any project where the resume claims a timeframe that doesn't align with when the repo was actually active (e.g., resume says "built in 2024" but the repo's commits are all from 2022). If a repo has no commit data (commitCount: 0), state that date comparison wasn't possible for that one rather than guessing.
 
 Produce:
 - overclaimFlags: { resumeClaim, githubReality, severity: 'minor'|'significant' }[]
 - missingStrongProjects: { repoName, whyItShouldBeOnResume }[]
+- dateInconsistencies: { projectName, resumeClaimedDate, githubActualDateRange, severity: 'minor'|'significant' }[]
 - overallConsistencyNote: 1-2 sentences`;
 
     const response = await ai.models.generateContent({
@@ -417,6 +432,18 @@ Produce:
                 },
               },
             },
+            dateInconsistencies: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  projectName: { type: Type.STRING },
+                  resumeClaimedDate: { type: Type.STRING },
+                  githubActualDateRange: { type: Type.STRING },
+                  severity: { type: Type.STRING },
+                },
+              },
+            },
             overallConsistencyNote: { type: Type.STRING },
           },
         },
@@ -427,6 +454,7 @@ Produce:
     return {
       overclaimFlags: Array.isArray(parsed.overclaimFlags) ? parsed.overclaimFlags : fallback.overclaimFlags,
       missingStrongProjects: Array.isArray(parsed.missingStrongProjects) ? parsed.missingStrongProjects : fallback.missingStrongProjects,
+      dateInconsistencies: Array.isArray(parsed.dateInconsistencies) ? parsed.dateInconsistencies : [],
       overallConsistencyNote: parsed.overallConsistencyNote || fallback.overallConsistencyNote,
     };
   } catch (err) {

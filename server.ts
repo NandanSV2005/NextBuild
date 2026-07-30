@@ -485,7 +485,7 @@ app.post("/api/analysis/fit", verifyAccessTokenMiddleware, async (req: any, res)
     });
 
     const resumeGapAnalysis = await evaluateResumeDeep(resumeData || {}, job || {}, ai);
-    const consistencyCheck = await checkResumeGithubConsistency(resumeData || {}, fitAnalysis, ai);
+    const consistencyCheck = await checkResumeGithubConsistency(resumeData || {}, fitAnalysis, repos || [], ai);
 
     // TODO(persistence): save fitAnalysis + resumeGapAnalysis + consistencyCheck to
     // FitAnalysis table, linked to req.user.userId and the relevant job_id.

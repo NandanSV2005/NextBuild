@@ -76,6 +76,7 @@ export interface ResumeGapAnalysis {
 export interface ConsistencyCheck {
   overclaimFlags: { resumeClaim: string; githubReality: string; severity: 'minor' | 'significant' }[];
   missingStrongProjects: { repoName: string; whyItShouldBeOnResume: string }[];
+  dateInconsistencies: { projectName: string; resumeClaimedDate: string; githubActualDateRange: string; severity: 'minor' | 'significant' }[];
   overallConsistencyNote: string;
 }
 
