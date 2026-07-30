@@ -3,7 +3,12 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import { evaluateFit } from "./src/services/fitEngine";
+import {
+  evaluateFit,
+  evaluateResumeDeep,
+  checkResumeGithubConsistency,
+  generateDeepRoadmap,
+} from "./src/services/fitEngine";
 import {
   registerUser,
   loginUser,
@@ -356,19 +361,27 @@ app.post("/api/company/research", async (req, res) => {
 // -----------------------------------------------------------------------------
 app.post("/api/analysis/fit", async (req, res) => {
   try {
-    const { repos, job, companyResearch } = req.body;
+    const { repos, job, resumeData, companyResearch } = req.body;
     const ai = getGeminiClient();
 
     const fitAnalysis = await evaluateFit({
       repos: repos || [],
       job: job || {},
+      resumeData: resumeData || {},
       companyResearch: companyResearch || null,
       aiClient: ai,
     });
 
+    const resumeGapAnalysis = await evaluateResumeDeep(resumeData || {}, job || {}, ai);
+    const consistencyCheck = await checkResumeGithubConsistency(resumeData || {}, fitAnalysis, ai);
+
     res.json({
       success: true,
-      fitAnalysis,
+      fitAnalysis: {
+        ...fitAnalysis,
+        resumeGapAnalysis,
+        consistencyCheck,
+      },
       disclaimer: fitAnalysis.disclaimer,
     });
   } catch (error: any) {
@@ -378,102 +391,42 @@ app.post("/api/analysis/fit", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 8. Project Recommendation & Roadmap Generator
+// 8. Project Recommendation & Roadmap Generator (Deep Resume/Consistency Driven)
 // -----------------------------------------------------------------------------
 app.post("/api/roadmap/generate", async (req, res) => {
-  const { job, fitAnalysis, companyResearch } = req.body;
-
-  const fallbackProjects = [
-    {
-      id: "rec-1",
-      title: "Scalable Full-Stack Microservices Dashboard",
-      problemStatement: "Build an asynchronous event-driven monitoring dashboard utilizing FastAPI, Redis cache, and Docker containerization.",
-      techStack: ["FastAPI", "Redis", "Docker", "React", "PostgreSQL"],
-      estimatedBuildTime: "~5 days",
-      milestones: [
-        { stepNumber: 1, title: "Backend API & Redis Caching", description: "Implement FastAPI REST endpoints integrated with Redis cache layer." },
-        { stepNumber: 2, title: "Containerization & Database", description: "Write Dockerfile & docker-compose for PostgreSQL and web server." },
-        { stepNumber: 3, title: "Frontend Dashboard UI", description: "Build interactive React UI displaying system health metrics." },
-      ],
-    },
-    {
-      id: "rec-2",
-      title: "Distributed AI Task Queue Service",
-      problemStatement: "Construct a background job processing engine with Celery & RabbitMQ exposing WebSocket progress updates.",
-      techStack: ["Python", "RabbitMQ", "Celery", "WebSockets"],
-      estimatedBuildTime: "~4 days",
-      milestones: [
-        { stepNumber: 1, title: "Queue & Worker Architecture", description: "Set up Celery worker tasks with RabbitMQ broker." },
-        { stepNumber: 2, title: "Real-time Pub/Sub", description: "Expose WebSocket handler streaming task completion status." },
-        { stepNumber: 3, title: "Integration Testing", description: "Create mock load testing suite simulating concurrent jobs." },
-      ],
-    },
-    {
-      id: "rec-3",
-      title: "Cloud Native API Gateway & Rate Limiter",
-      problemStatement: "Design a high-throughput API proxy enforcing sliding window token-bucket rate limiting.",
-      techStack: ["TypeScript", "Node.js", "Express", "Docker"],
-      estimatedBuildTime: "~3 days",
-      milestones: [
-        { stepNumber: 1, title: "Proxy Middleware", description: "Implement HTTP reverse proxy forwarding requests to downstream services." },
-        { stepNumber: 2, title: "Rate Limiting Logic", description: "Build sliding window rate limiter backed by Redis." },
-        { stepNumber: 3, title: "Benchmarking", description: "Measure latency overhead under 1,000 requests/sec load." },
-      ],
-    },
-  ];
+  const { job, fitAnalysis, resumeGapAnalysis, consistencyCheck } = req.body;
 
   try {
     const ai = getGeminiClient();
-    const prompt = `Based on the identified skill gaps for target position "${job?.title || "Software Engineer"}" at "${job?.company || "Target Company"}", generate 3 recommended project ideas closing skill gaps.
-    Requirements: ${JSON.stringify(job?.requiredSkills || ["React", "FastAPI", "Redis"])}
-    
-    Return 3 projects with title, problemStatement, techStack array, estimatedBuildTime, and 3 sequential milestones.`;
+    const recommendedProjects = await generateDeepRoadmap(
+      job || {},
+      resumeGapAnalysis || {},
+      fitAnalysis || {},
+      consistencyCheck || {},
+      ai
+    );
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            recommendedProjects: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  title: { type: Type.STRING },
-                  problemStatement: { type: Type.STRING },
-                  techStack: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  estimatedBuildTime: { type: Type.STRING },
-                  milestones: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        stepNumber: { type: Type.NUMBER },
-                        title: { type: Type.STRING },
-                        description: { type: Type.STRING },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    const roadmapData = JSON.parse(response.text || "{}");
-    if (Array.isArray(roadmapData.recommendedProjects) && roadmapData.recommendedProjects.length > 0) {
-      return res.json({ success: true, recommendedProjects: roadmapData.recommendedProjects });
-    }
-    return res.json({ success: true, recommendedProjects: fallbackProjects });
+    return res.json({ success: true, recommendedProjects });
   } catch (error: any) {
     console.warn("Roadmap generate fallback:", error.message);
-    return res.json({ success: true, recommendedProjects: fallbackProjects });
+    return res.json({
+      success: true,
+      recommendedProjects: [
+        {
+          id: "rec-1",
+          title: "Scalable Full-Stack Microservices Dashboard",
+          addressesGap: "Backend microservice & cache layer gap",
+          problemStatement: "Build an asynchronous event-driven monitoring dashboard utilizing FastAPI, Redis cache, and Docker containerization.",
+          techStack: ["FastAPI", "Redis", "Docker", "React", "PostgreSQL"],
+          estimatedBuildTime: "~5 days",
+          milestones: [
+            { stepNumber: 1, title: "Backend API & Redis Caching", description: "Implement FastAPI REST endpoints integrated with Redis cache layer." },
+            { stepNumber: 2, title: "Containerization & Database", description: "Write Dockerfile & docker-compose for PostgreSQL and web server." },
+            { stepNumber: 3, title: "Frontend Dashboard UI", description: "Build interactive React UI displaying system health metrics." },
+          ],
+        },
+      ],
+    });
   }
 });
 

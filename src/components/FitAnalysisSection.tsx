@@ -152,7 +152,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
               return (
                 <div
                   key={fit.id}
-                  className="bg-[#10253F] border border-[#3D6FB4] hover:border-[#3D6FB4]/80 rounded-md p-4 space-y-2 transition-colors"
+                  className="bg-[#10253F] border border-[#3D6FB4] hover:border-[#3D6FB4]/80 rounded-md p-4 space-y-3 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono-data font-semibold text-sm text-[#F2F0E6]">
@@ -165,9 +165,34 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
                     </span>
                   </div>
 
+                  {/* README Claims vs Reality */}
+                  {fit.readmeSummary && (
+                    <div className="text-xs font-body text-[#7C93AC] italic border-l-2 border-[#3D6FB4] pl-2 py-0.5">
+                      README Overview: "{fit.readmeSummary}"
+                    </div>
+                  )}
+
                   <p className="font-body text-sm text-[#F2F0E6] leading-relaxed">
                     {fit.reasoning}
                   </p>
+
+                  {/* Engineering Signals Breakdown */}
+                  {fit.engineeringSignals && activeTab === 'github' && (
+                    <div className="pt-2 border-t border-[#3D6FB4]/30 flex flex-wrap gap-2 text-[11px] font-mono-data text-[#7C93AC]">
+                      <span className="px-2 py-0.5 rounded bg-[#3D6FB4]/20 text-[#F2F0E6]">
+                        Commit Pattern: {fit.engineeringSignals.commitPattern || 'Incremental development'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded ${fit.engineeringSignals.hasTests ? 'bg-[#4FA87B]/20 text-[#4FA87B]' : 'bg-[#3D6FB4]/10 text-[#7C93AC]'}`}>
+                        {fit.engineeringSignals.hasTests ? '✓ Tests Included' : 'No Automated Tests'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded ${fit.engineeringSignals.hasCI ? 'bg-[#4FA87B]/20 text-[#4FA87B]' : 'bg-[#3D6FB4]/10 text-[#7C93AC]'}`}>
+                        {fit.engineeringSignals.hasCI ? '✓ CI Configured' : 'No CI Pipeline'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded ${fit.engineeringSignals.appearsOriginal ? 'bg-[#4FA87B]/20 text-[#4FA87B]' : 'bg-[#F2A93B]/20 text-[#F2A93B]'}`}>
+                        {fit.engineeringSignals.appearsOriginal ? '✓ Original Work' : 'Fork / Bootcamp Project'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               );
             })}

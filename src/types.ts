@@ -17,12 +17,38 @@ export interface JobPosting {
   requiredSkills: string[];
 }
 
+export interface EngineeringSignals {
+  commitPattern?: string;
+  hasTests?: boolean;
+  hasCI?: boolean;
+  hasDeployment?: boolean;
+  appearsOriginal?: boolean;
+  lastActive?: string;
+}
+
 export interface ProjectFit {
   id: string;
   projectName: string;
-  verdict: 'Direct Match' | 'Partial Match' | 'Missing Tech';
+  verdict: 'Direct Match' | 'Partial Match' | 'Weak Match' | 'Missing Tech';
   verdictColor: 'green' | 'amber' | 'red';
+  readmeSummary?: string;
+  engineeringSignals?: EngineeringSignals;
   reasoning: string;
+}
+
+export interface ResumeGapAnalysis {
+  matchSummary: string;
+  missingRequirements: { requirement: string; whyItMatters: string }[];
+  unbackedKeywords: { skill: string; whyThisIsAProblem: string }[];
+  weakAreas: { area: string; issue: string }[];
+  atsPhrasingGaps: { jdTerm: string; resumePhrasing: string; risk: string }[];
+  resumeQualityNotes: string[];
+}
+
+export interface ConsistencyCheck {
+  overclaimFlags: { resumeClaim: string; githubReality: string; severity: 'minor' | 'significant' }[];
+  missingStrongProjects: { repoName: string; whyItShouldBeOnResume: string }[];
+  overallConsistencyNote: string;
 }
 
 export interface RoadmapMilestone {
@@ -34,6 +60,7 @@ export interface RoadmapMilestone {
 export interface RecommendedProject {
   id: string;
   title: string;
+  addressesGap?: string;
   problemStatement: string;
   techStack: string[];
   estimatedBuildTime: string;
