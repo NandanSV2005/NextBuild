@@ -51,6 +51,14 @@ export interface ConsistencyCheck {
   overallConsistencyNote: string;
 }
 
+export interface ResumeSkillRoadmapItem {
+  stepNumber: number;
+  topic: string;
+  problemIdentified: string;
+  actionPlan: string;
+  recommendedResourceUrl: string;
+}
+
 export interface RoadmapMilestone {
   stepNumber: number;
   title: string;

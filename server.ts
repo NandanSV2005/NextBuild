@@ -7,7 +7,8 @@ import {
   evaluateFit,
   evaluateResumeDeep,
   checkResumeGithubConsistency,
-  generateDeepRoadmap,
+  generateGithubRoadmap,
+  generateResumeRoadmap,
 } from "./src/services/fitEngine";
 import {
   registerUser,
@@ -391,22 +392,17 @@ app.post("/api/analysis/fit", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 8. Project Recommendation & Roadmap Generator (Deep Resume/Consistency Driven)
+// 8. Project & Resume Roadmap Generator (Distinct GitHub vs Resume Prompts)
 // -----------------------------------------------------------------------------
 app.post("/api/roadmap/generate", async (req, res) => {
   const { job, fitAnalysis, resumeGapAnalysis, consistencyCheck } = req.body;
 
   try {
     const ai = getGeminiClient();
-    const recommendedProjects = await generateDeepRoadmap(
-      job || {},
-      resumeGapAnalysis || {},
-      fitAnalysis || {},
-      consistencyCheck || {},
-      ai
-    );
+    const recommendedProjects = await generateGithubRoadmap(job || {}, fitAnalysis || {}, ai);
+    const resumeRoadmap = await generateResumeRoadmap(job || {}, resumeGapAnalysis || {}, consistencyCheck || {}, ai);
 
-    return res.json({ success: true, recommendedProjects });
+    return res.json({ success: true, recommendedProjects, resumeRoadmap });
   } catch (error: any) {
     console.warn("Roadmap generate fallback:", error.message);
     return res.json({
@@ -424,6 +420,15 @@ app.post("/api/roadmap/generate", async (req, res) => {
             { stepNumber: 2, title: "Containerization & Database", description: "Write Dockerfile & docker-compose for PostgreSQL and web server." },
             { stepNumber: 3, title: "Frontend Dashboard UI", description: "Build interactive React UI displaying system health metrics." },
           ],
+        },
+      ],
+      resumeRoadmap: [
+        {
+          stepNumber: 1,
+          topic: "ATS Keyword Phrasing & Title Alignment",
+          problemIdentified: "Resume uses generic terms instead of exact JD keywords.",
+          actionPlan: "Rephrase experience bullet points to match exact ATS keyword terminology.",
+          recommendedResourceUrl: "https://react.dev",
         },
       ],
     });

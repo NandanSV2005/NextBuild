@@ -431,12 +431,10 @@ Produce:
   }
 }
 
-// 4. Deep Roadmap Generation Function
-export async function generateDeepRoadmap(
+// 4. Distinct GitHub Project Build Roadmap Generator
+export async function generateGithubRoadmap(
   job: JobInput,
-  gapAnalysis: any,
   githubFitAnalysis: any,
-  consistencyCheck: any,
   aiClient?: any
 ): Promise<RecommendedProject[]> {
   const fallbackProjects: RecommendedProject[] = [
@@ -465,16 +463,14 @@ export async function generateDeepRoadmap(
       });
     }
 
-    const roadmapPrompt = `Generate a project roadmap for a student to close the specific gaps identified across their resume, GitHub, and consistency analysis for this job.
+    const githubRoadmapPrompt = `Generate a dedicated hands-on GitHub Project Build Roadmap for a student to close code and engineering maturity gaps.
 
 Target Job: ${JSON.stringify(job || {})}
-Resume Gap Analysis: ${JSON.stringify(gapAnalysis || {})}
 GitHub Fit Analysis: ${JSON.stringify(githubFitAnalysis || {})}
-Consistency Check: ${JSON.stringify(consistencyCheck || {})}
 
-Prioritize in this order: (1) resumeGapAnalysis.missingRequirements and unbackedKeywords — skills with zero real backing, (2) weakAreas that could be strengthened by a more substantial project, (3) engineering-maturity gaps flagged in the GitHub analysis (e.g., no tests/CI anywhere) if the JD/company context values that. If consistencyCheck.missingStrongProjects is non-empty, mention in a separate note that adding those to the resume is a free, no-build-required improvement before suggesting new projects.
+Generate 2-3 hands-on software project recommendations to close repository code & engineering maturity gaps (tests, CI/CD, microservices, async processing).
 
-For each of 2-3 recommended projects:
+For each project:
 - title: project title
 - addressesGap: which specific gap this fixes
 - problemStatement: problem statement
@@ -484,7 +480,7 @@ For each of 2-3 recommended projects:
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
-      contents: roadmapPrompt,
+      contents: githubRoadmapPrompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -526,7 +522,112 @@ For each of 2-3 recommended projects:
     }
     return fallbackProjects;
   } catch (err) {
-    console.warn("Deep roadmap generation fallback:", err);
+    console.warn("GitHub roadmap generation fallback:", err);
     return fallbackProjects;
   }
 }
+
+// 5. Distinct Resume Skill & Career Mastery Roadmap Generator
+export async function generateResumeRoadmap(
+  job: JobInput,
+  gapAnalysis: any,
+  consistencyCheck: any,
+  aiClient?: any
+): Promise<any[]> {
+  const fallbackResumeRoadmap = [
+    {
+      stepNumber: 1,
+      topic: "ATS Keyword Phrasing & Title Alignment",
+      problemIdentified: "Resume uses generic 'web scripts' instead of exact JD term 'CI/CD Pipelines'.",
+      actionPlan: "Rephrase experience bullet points to match exact ATS keyword terminology used in target posting.",
+      recommendedResourceUrl: "https://react.dev",
+    },
+    {
+      stepNumber: 2,
+      topic: "Quantified Impact & Business Outcomes",
+      problemIdentified: "Bullet points describe duty listings without measurable metrics.",
+      actionPlan: "Rewrite bullet points using Google X-Y-Z formula: 'Accomplished [X] as measured by [Y], by doing [Z]'.",
+      recommendedResourceUrl: "https://www.typescriptlang.org/docs/",
+    },
+    {
+      stepNumber: 3,
+      topic: "Mastering Missing Required Concepts",
+      problemIdentified: "Missing hands-on experience backing for Redis and Kafka distributed queues.",
+      actionPlan: "Complete official documentation tutorials for Redis caching and message brokers.",
+      recommendedResourceUrl: "https://fastapi.tiangolo.com/",
+    },
+    {
+      stepNumber: 4,
+      topic: "Free Resume Wins (GitHub Integration)",
+      problemIdentified: "Strong public GitHub repositories are missing from resume experience section.",
+      actionPlan: "Add repository links and technical bullet points for top 2 GitHub projects to resume.",
+      recommendedResourceUrl: "https://docs.docker.com/",
+    },
+  ];
+
+  try {
+    let ai = aiClient;
+    if (!ai) {
+      const apiKey = process.env.GEMINI_API_KEY || "MISSING_KEY";
+      ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+      });
+    }
+
+    const resumeRoadmapPrompt = `Generate a dedicated Resume & Skill Mastery Roadmap for a candidate applying to "${job?.title || "Software Engineer"}" at "${job?.company || "Target Company"}".
+
+Resume Gap Analysis: ${JSON.stringify(gapAnalysis || {})}
+Consistency Check: ${JSON.stringify(consistencyCheck || {})}
+Target Job: ${JSON.stringify(job || {})}
+
+Provide a structured 4-step Resume & Career Action Roadmap addressing:
+1. ATS Phrasing & Keyword Alignment: exact terms to rephrase on resume.
+2. Quantified Impact & Bullet Point Rewrites: how to rewrite vague duty listings into metric-driven bullets.
+3. Core Technical Concepts & Documentation to Master: specific skills to study with official learning URLs.
+4. Resume/GitHub Consistency Action: free resume wins (adding missing GitHub repos or fixing overclaim risks).
+
+For each step, provide:
+- stepNumber: number
+- topic: string
+- problemIdentified: string
+- actionPlan: string
+- recommendedResourceUrl: string`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: resumeRoadmapPrompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            resumeRoadmap: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  stepNumber: { type: Type.NUMBER },
+                  topic: { type: Type.STRING },
+                  problemIdentified: { type: Type.STRING },
+                  actionPlan: { type: Type.STRING },
+                  recommendedResourceUrl: { type: Type.STRING },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    if (Array.isArray(parsed.resumeRoadmap) && parsed.resumeRoadmap.length > 0) {
+      return parsed.resumeRoadmap;
+    }
+    return fallbackResumeRoadmap;
+  } catch (err) {
+    console.warn("Resume roadmap generation fallback:", err);
+    return fallbackResumeRoadmap;
+  }
+}
+
