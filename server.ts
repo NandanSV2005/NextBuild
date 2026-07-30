@@ -9,6 +9,7 @@ import {
   checkResumeGithubConsistency,
   generateGithubRoadmap,
   generateResumeRoadmap,
+  RepoInput,
 } from "./src/services/fitEngine";
 import {
   registerUser,
@@ -24,11 +25,9 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-// Middleware for parsing JSON with ample payload limit for resumes
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Initialize Gemini Client
 const getGeminiClient = () => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -45,12 +44,79 @@ const getGeminiClient = () => {
 };
 
 // -----------------------------------------------------------------------------
+// FIX #1: real GitHub deep-data fetcher — README, commits, tests/CI/Docker presence,
+// dependency file. This is what makes the "deep analysis" prompts actually meaningful.
+// Requires a GITHUB_TOKEN env var for reasonable rate limits (60/hr unauthenticated).
+// -----------------------------------------------------------------------------
+async function fetchRepoDeepData(owner: string, repoName: string) {
+  const headers: Record<string, string> = {
+    "User-Agent": "NextBuild-App",
+    Accept: "application/vnd.github.v3+json",
+  };
+  if (process.env.GITHUB_TOKEN) {
+    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+  }
+
+  let readmeContent: string | null = null;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${owner}/${repoName}/readme`, { headers });
+    if (r.ok) {
+      const data = await r.json();
+      if (data.content) {
+        readmeContent = Buffer.from(data.content, "base64").toString("utf-8").slice(0, 3000);
+      }
+    }
+  } catch (e) {
+    console.warn(`README fetch failed for ${owner}/${repoName}:`, e);
+  }
+
+  let commits: { date: string; message: string }[] = [];
+  try {
+    const r = await fetch(`https://api.github.com/repos/${owner}/${repoName}/commits?per_page=30`, { headers });
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data)) {
+        commits = data.map((c: any) => ({
+          date: c.commit?.author?.date || "",
+          message: c.commit?.message || "",
+        }));
+      }
+    }
+  } catch (e) {
+    console.warn(`Commits fetch failed for ${owner}/${repoName}:`, e);
+  }
+
+  let rootFiles: string[] = [];
+  try {
+    const r = await fetch(`https://api.github.com/repos/${owner}/${repoName}/contents`, { headers });
+    if (r.ok) {
+      const data = await r.json();
+      if (Array.isArray(data)) {
+        rootFiles = data.map((f: any) => f.name);
+      }
+    }
+  } catch (e) {
+    console.warn(`Contents fetch failed for ${owner}/${repoName}:`, e);
+  }
+
+  return {
+    readmeContent,
+    commits,
+    hasTests: rootFiles.some((f) => /test/i.test(f)),
+    hasCI: rootFiles.includes(".github"),
+    hasDocker: rootFiles.some((f) => /dockerfile/i.test(f)),
+    dependencyFile: rootFiles.find((f) => ["package.json", "requirements.txt", "pyproject.toml"].includes(f)) || null,
+  };
+}
+
+// -----------------------------------------------------------------------------
 // 1. Health Check Endpoint
 // -----------------------------------------------------------------------------
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
     hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasGithubToken: Boolean(process.env.GITHUB_TOKEN),
     timestamp: new Date().toISOString(),
   });
 });
@@ -112,20 +178,27 @@ app.delete("/api/profile", verifyAccessTokenMiddleware, async (req: any, res) =>
 });
 
 // -----------------------------------------------------------------------------
-// 3. Resume Intake & Parsing Endpoint (In-memory structured parsing, raw discarded)
+// 3. Resume Intake & Parsing Endpoint
+// FIX #2: require real input — no more baked-in fake "Alex Chen" example used as a silent fallback.
+// FIX #4: now requires auth, so parsed data can be tied to the logged-in student.
 // -----------------------------------------------------------------------------
-app.post("/api/resume/parse", async (req, res) => {
+app.post("/api/resume/parse", verifyAccessTokenMiddleware, async (req: any, res) => {
   try {
     const { resumeText, filename } = req.body;
+
+    if (!resumeText || resumeText.trim().length < 20) {
+      return res.status(400).json({ error: "resumeText is required and must contain real resume content." });
+    }
+
     const ai = getGeminiClient();
 
     const prompt = `You are an expert resume parser for tech and software engineering students.
-    Parse the following resume content into structured candidate data.
-    
-    Resume Filename: ${filename || "Uploaded_Resume.pdf"}
-    Resume Text Context: ${resumeText || "Candidate: Alex Chen, B.S. Computer Science, Experienced in Python, FastAPI, React, TypeScript, Docker, PostgreSQL."}
-    
-    Return a structured JSON object detailing candidate name, degree, top skills, experience summary, and project entries listed on the resume.`;
+Parse the following resume content into structured candidate data.
+
+Resume Filename: ${filename || "Uploaded_Resume.pdf"}
+Resume Text: ${resumeText}
+
+Return a structured JSON object detailing candidate name, degree, top skills, experience summary, and project entries listed on the resume. If any field cannot be determined from the text, return an empty string or empty array for it rather than inventing plausible-sounding content.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -162,6 +235,10 @@ app.post("/api/resume/parse", async (req, res) => {
     });
 
     const parsedData = JSON.parse(response.text || "{}");
+
+    // TODO(persistence): save parsedData to StudentProfile.resume_json for req.user.userId
+    // and discard the raw resumeText/file per the privacy requirements already agreed on.
+
     res.json({ success: true, data: parsedData });
   } catch (error: any) {
     console.error("Resume parse error:", error);
@@ -174,8 +251,11 @@ app.post("/api/resume/parse", async (req, res) => {
 
 // -----------------------------------------------------------------------------
 // 4. GitHub Profile Analysis Endpoint
+// FIX #1: fetches real README/commits/tests/CI/Docker data per repo before analysis.
+// FIX #2: no more fabricated "representative" portfolio when a user has zero real repos.
+// FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/github/analyze", async (req, res) => {
+app.post("/api/github/analyze", verifyAccessTokenMiddleware, async (req: any, res) => {
   try {
     const { username } = req.body;
     if (!username) {
@@ -185,82 +265,65 @@ app.post("/api/github/analyze", async (req, res) => {
     const cleanUsername = username.replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
     let publicRepos: any[] = [];
 
-    // Fetch public repositories from official GitHub REST API (up to 100 repos)
+    const ghHeaders: Record<string, string> = {
+      "User-Agent": "NextBuild-App",
+      Accept: "application/vnd.github.v3+json",
+    };
+    if (process.env.GITHUB_TOKEN) {
+      ghHeaders["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
+
     try {
       const ghRes = await fetch(`https://api.github.com/users/${cleanUsername}/repos?sort=updated&per_page=100&type=all`, {
-        headers: {
-          "User-Agent": "NextBuild-App",
-          Accept: "application/vnd.github.v3+json",
-        },
+        headers: ghHeaders,
       });
 
       if (ghRes.ok) {
         const ghData = await ghRes.json();
-        if (Array.isArray(ghData) && ghData.length > 0) {
+        if (Array.isArray(ghData)) {
           publicRepos = ghData.map((r: any) => ({
             id: r.id?.toString() || r.name,
             name: r.name,
-            description: r.description || "Public repository",
-            techStack: r.language ? [r.language] : ["TypeScript", "JavaScript"],
+            description: r.description || null,
+            techStack: r.language ? [r.language] : [],
             stars: r.stargazers_count || 0,
-            updatedAt: r.updated_at ? new Date(r.updated_at).toLocaleDateString() : "recently",
+            updatedAt: r.updated_at ? new Date(r.updated_at).toLocaleDateString() : "unknown",
           }));
-
-          return res.json({
-            success: true,
-            username: cleanUsername,
-            repos: publicRepos,
-          });
         }
       }
     } catch (e) {
-      console.warn("GitHub API fetch fallback engaged:", e);
+      console.warn("GitHub repo list fetch failed:", e);
     }
 
-    // AI Enrichment step using Gemini
-    const ai = getGeminiClient();
-    const prompt = `Analyze the following GitHub profile repositories for @${cleanUsername}.
-    Repositories found: ${JSON.stringify(publicRepos)}
-    
-    If no repositories were fetched, generate 3 representative project profiles typical of a computer science student interested in full-stack engineering.
-    Provide a structured summary of each project with repo name, one-line description, and tech stack tags.`;
+    // FIX #2: honest empty state instead of a fabricated fake portfolio
+    if (publicRepos.length === 0) {
+      return res.json({
+        success: true,
+        username: cleanUsername,
+        repos: [],
+        hasRepos: false,
+        message: "No public repositories found for this GitHub username. Double-check the username, or note that private repos cannot be analyzed.",
+      });
+    }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            username: { type: Type.STRING },
-            repositories: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  id: { type: Type.STRING },
-                  name: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  techStack: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                  },
-                  stars: { type: Type.NUMBER },
-                  updatedAt: { type: Type.STRING },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
+    // FIX #1: enrich the top N most recently updated repos with real deep data
+    // (capped to stay within GitHub rate limits — each repo costs 3 extra calls)
+    const REPOS_TO_ENRICH = 6;
+    const reposToEnrich = publicRepos.slice(0, REPOS_TO_ENRICH);
+    const enrichedRepos: RepoInput[] = await Promise.all(
+      reposToEnrich.map(async (r) => {
+        const deepData = await fetchRepoDeepData(cleanUsername, r.name);
+        return { ...r, ...deepData };
+      })
+    );
+    const remainingRepos = publicRepos.slice(REPOS_TO_ENRICH); // not enriched, but still returned
 
-    const aiAnalysis = JSON.parse(response.text || "{}");
-    res.json({
+    return res.json({
       success: true,
       username: cleanUsername,
-      repos: aiAnalysis.repositories || publicRepos,
+      repos: [...enrichedRepos, ...remainingRepos],
+      hasRepos: true,
+      enrichedCount: enrichedRepos.length,
     });
   } catch (error: any) {
     console.error("GitHub analyze error:", error);
@@ -270,19 +333,30 @@ app.post("/api/github/analyze", async (req, res) => {
 
 // -----------------------------------------------------------------------------
 // 5. Job Description Intake & Parsing Endpoint
+// FIX #2: requires real input — no baked-in fake JD used as a silent fallback.
+// Note: this backend does not scrape JDs itself — rawText/jobUrl should come from
+// the separate scraper tool's output.
 // -----------------------------------------------------------------------------
-app.post("/api/jd/parse", async (req, res) => {
+app.post("/api/jd/parse", verifyAccessTokenMiddleware, async (req: any, res) => {
   try {
     const { jobUrl, rawText } = req.body;
+
+    if (!rawText && !jobUrl) {
+      return res.status(400).json({ error: "Either rawText or jobUrl is required." });
+    }
+    if (rawText && rawText.trim().length < 20) {
+      return res.status(400).json({ error: "rawText is too short to be a real job description." });
+    }
+
     const ai = getGeminiClient();
 
     const prompt = `You are an expert job description parser for engineering positions on LinkedIn, Naukri, and Indeed.
-    Parse the target job posting URL and raw text content into standardized requirements.
-    
-    Job Posting URL: ${jobUrl || "https://linkedin.com/jobs/view/apex-fullstack-engineer-10293"}
-    Raw JD Text (if provided): ${rawText || "Full-Stack Software Engineer. Requirements: React, TypeScript, FastAPI, Redis, PostgreSQL, Docker."}
-    
-    Extract structured job details: title, company name, location, short description excerpt, required skills list, and domain (e.g. Full-Stack, Backend, AI/ML).`;
+Parse the target job posting into standardized requirements.
+
+Job Posting URL: ${jobUrl || "Not provided"}
+Raw JD Text: ${rawText || "Not provided — infer only what is reasonable from the URL context, and leave fields empty if truly unknown."}
+
+Extract structured job details: title, company name, location, short description excerpt, required skills list, and domain (e.g. Full-Stack, Backend, AI/ML). If a field cannot be determined, return an empty string or empty array rather than inventing a plausible-sounding value.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -309,6 +383,9 @@ app.post("/api/jd/parse", async (req, res) => {
     });
 
     const jobData = JSON.parse(response.text || "{}");
+
+    // TODO(persistence): save jobData to JobDescription table.
+
     res.json({ success: true, job: jobData });
   } catch (error: any) {
     console.error("JD parse error:", error);
@@ -318,8 +395,10 @@ app.post("/api/jd/parse", async (req, res) => {
 
 // -----------------------------------------------------------------------------
 // 6. Company Research Enrichment Endpoint (Optional / Non-blocking)
+// FIX #2: no more generic filler text passed off as "research found" — model must say
+// NO_SIGNAL_FOUND explicitly if it can't find real, company-specific information.
 // -----------------------------------------------------------------------------
-app.post("/api/company/research", async (req, res) => {
+app.post("/api/company/research", verifyAccessTokenMiddleware, async (req: any, res) => {
   try {
     const { companyName } = req.body;
     if (!companyName) {
@@ -327,9 +406,10 @@ app.post("/api/company/research", async (req, res) => {
     }
 
     const ai = getGeminiClient();
-    const prompt = `Research the engineering tech stack, architecture focus, microservices adoption, or cloud practices of the company: "${companyName}".
-    Summarize any known engineering blog topics or technical focus areas in 2-3 concise sentences.
-    If no specific details are known, provide clean industry context for technology companies in that sector.`;
+    const prompt = `Research the engineering tech stack, architecture focus, microservices adoption, or cloud practices of the company: "${companyName}", using web search.
+
+If you find genuine, specific, verifiable information about this company's actual engineering practices, summarize it in 2-3 concise sentences.
+If you cannot find real, company-specific information (this is common for smaller companies), respond with EXACTLY the string "NO_SIGNAL_FOUND" and nothing else. Do NOT invent generic industry context to fill the gap.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -339,12 +419,14 @@ app.post("/api/company/research", async (req, res) => {
       },
     });
 
-    const text = response.text || "";
+    const text = (response.text || "").trim();
+    const researchFound = text !== "NO_SIGNAL_FOUND" && text.length > 20;
+
     res.json({
       success: true,
       companyName,
-      researchFound: text.length > 20,
-      engineeringSignal: text,
+      researchFound,
+      engineeringSignal: researchFound ? text : null,
     });
   } catch (error: any) {
     console.warn("Company research fallback:", error.message);
@@ -352,15 +434,16 @@ app.post("/api/company/research", async (req, res) => {
       success: true,
       researchFound: false,
       companyName: req.body.companyName || "Unknown",
-      engineeringSignal: "Standard high-scalability full-stack web standards applied.",
+      engineeringSignal: null,
     });
   }
 });
 
 // -----------------------------------------------------------------------------
 // 7. Fit Analysis Engine (Delegates to modular evaluateFit)
+// FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/analysis/fit", async (req, res) => {
+app.post("/api/analysis/fit", verifyAccessTokenMiddleware, async (req: any, res) => {
   try {
     const { repos, job, resumeData, companyResearch } = req.body;
     const ai = getGeminiClient();
@@ -375,6 +458,9 @@ app.post("/api/analysis/fit", async (req, res) => {
 
     const resumeGapAnalysis = await evaluateResumeDeep(resumeData || {}, job || {}, ai);
     const consistencyCheck = await checkResumeGithubConsistency(resumeData || {}, fitAnalysis, ai);
+
+    // TODO(persistence): save fitAnalysis + resumeGapAnalysis + consistencyCheck to
+    // FitAnalysis table, linked to req.user.userId and the relevant job_id.
 
     res.json({
       success: true,
@@ -392,9 +478,10 @@ app.post("/api/analysis/fit", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 8. Project & Resume Roadmap Generator (Distinct GitHub vs Resume Prompts)
+// 8. Project & Resume Roadmap Generator
+// FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/roadmap/generate", async (req, res) => {
+app.post("/api/roadmap/generate", verifyAccessTokenMiddleware, async (req: any, res) => {
   const { job, fitAnalysis, resumeGapAnalysis, consistencyCheck } = req.body;
 
   try {
@@ -402,56 +489,28 @@ app.post("/api/roadmap/generate", async (req, res) => {
     const recommendedProjects = await generateGithubRoadmap(job || {}, fitAnalysis || {}, ai);
     const resumeRoadmap = await generateResumeRoadmap(job || {}, resumeGapAnalysis || {}, consistencyCheck || {}, ai);
 
+    // TODO(persistence): save recommendedProjects to ProjectRecommendation table.
+
     return res.json({ success: true, recommendedProjects, resumeRoadmap });
   } catch (error: any) {
-    console.warn("Roadmap generate fallback:", error.message);
-    return res.json({
-      success: true,
-      recommendedProjects: [
-        {
-          id: "rec-1",
-          title: "Scalable Full-Stack Microservices Dashboard",
-          addressesGap: "Backend microservice & cache layer gap",
-          problemStatement: "Build an asynchronous event-driven monitoring dashboard utilizing FastAPI, Redis cache, and Docker containerization.",
-          techStack: ["FastAPI", "Redis", "Docker", "React", "PostgreSQL"],
-          estimatedBuildTime: "~5 days",
-          milestones: [
-            { stepNumber: 1, title: "Backend API & Redis Caching", description: "Implement FastAPI REST endpoints integrated with Redis cache layer." },
-            { stepNumber: 2, title: "Containerization & Database", description: "Write Dockerfile & docker-compose for PostgreSQL and web server." },
-            { stepNumber: 3, title: "Frontend Dashboard UI", description: "Build interactive React UI displaying system health metrics." },
-          ],
-        },
-      ],
-      resumeRoadmap: [
-        {
-          stepNumber: 1,
-          topic: "ATS Keyword Phrasing & Title Alignment",
-          problemIdentified: "Resume uses generic terms instead of exact JD keywords.",
-          actionPlan: "Rephrase experience bullet points to match exact ATS keyword terminology.",
-          recommendedResourceUrl: "https://react.dev",
-        },
-      ],
-    });
+    console.error("Roadmap generate error:", error.message);
+    return res.status(500).json({ error: "Failed to generate roadmap", details: error.message });
   }
 });
 
 // -----------------------------------------------------------------------------
 // 9. Application Package Generator
+// FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/package/generate", async (req, res) => {
+app.post("/api/package/generate", verifyAccessTokenMiddleware, async (req: any, res) => {
   const { job, candidateInfo } = req.body;
-
-  const fallbackPackage = {
-    resumeHighlightSummary: `Strong software candidate experienced in full-stack web applications, REST APIs, and database engineering tailored for ${job?.company || "Apex Cloud Solutions"}.`,
-    whyThisRoleBlurb: `Passionate about building production-ready systems. My portfolio of software projects aligns directly with ${job?.title || "Engineering"} goals and team stack.`,
-  };
 
   try {
     const ai = getGeminiClient();
-    const prompt = `Generate a tailored application package for student applying to "${job?.title || "Software Engineer"}" at "${job?.company || "Company"}".
-    Candidate Info: ${JSON.stringify(candidateInfo || { candidateName: "Candidate", degree: "Computer Science" })}
-    
-    Produce resumeHighlightSummary (2-3 sentences) and whyThisRoleBlurb (2-3 sentences).`;
+    const prompt = `Generate a tailored application package for a student applying to "${job?.title || "Software Engineer"}" at "${job?.company || "Company"}".
+Candidate Info: ${JSON.stringify(candidateInfo || {})}
+
+Produce resumeHighlightSummary (2-3 sentences, honestly emphasizing genuinely relevant strengths) and whyThisRoleBlurb (2-3 sentences). If candidateInfo is empty or insufficient to write something specific and genuine, say so in resumeHighlightSummary rather than inventing generic filler.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -469,13 +528,13 @@ app.post("/api/package/generate", async (req, res) => {
     });
 
     const appPackage = JSON.parse(response.text || "{}");
-    if (appPackage.resumeHighlightSummary && appPackage.whyThisRoleBlurb) {
-      return res.json({ success: true, appPackage });
-    }
-    return res.json({ success: true, appPackage: fallbackPackage });
+
+    // TODO(persistence): save appPackage to ApplicationPackage table with status "saved".
+
+    return res.json({ success: true, appPackage });
   } catch (error: any) {
-    console.warn("Application package fallback:", error.message);
-    return res.json({ success: true, appPackage: fallbackPackage });
+    console.error("Application package generation error:", error.message);
+    return res.status(500).json({ error: "Failed to generate application package", details: error.message });
   }
 });
 
