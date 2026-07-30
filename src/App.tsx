@@ -349,7 +349,10 @@ export default function App() {
               totalReposCount={repos.length}
             />
 
-            <RoadmapSection recommendedProjects={recommendedProjects} />
+            <RoadmapSection
+              recommendedProjects={recommendedProjects}
+              overallScore={overallScore}
+            />
 
             <ApplicationPackageSection
               appPackage={appPackage}
