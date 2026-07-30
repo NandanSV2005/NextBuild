@@ -114,16 +114,32 @@ export default function App() {
     let companySignal = '';
     let currentFitAnalysis: any = null;
 
+    // Helper for fetch with 5-second timeout
+    const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs = 5000) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return res;
+      } catch (err) {
+        clearTimeout(id);
+        throw err;
+      }
+    };
+
     try {
       // Step 1: Research company signal (optional enrichment)
       try {
-        const compRes = await fetch('/api/company/research', {
+        const compRes = await fetchWithTimeout('/api/company/research', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ companyName: targetJob.company }),
-        });
-        const compData = await compRes.json();
-        companySignal = compData.engineeringSignal || '';
+        }, 4000);
+        if (compRes.ok) {
+          const compData = await compRes.json();
+          companySignal = compData.engineeringSignal || '';
+        }
       } catch (e) {
         console.warn('Company research optional fallback:', e);
       }
@@ -131,19 +147,21 @@ export default function App() {
       // Step 2: Fit Analysis
       setAnalysisStatusText('Evaluating project match against job requirements & company tech stack...');
       try {
-        const fitRes = await fetch('/api/analysis/fit', {
+        const fitRes = await fetchWithTimeout('/api/analysis/fit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repos: currentRepos, job: targetJob, companyResearch: companySignal }),
-        });
-        const fitData = await fitRes.json();
+        }, 6000);
 
-        if (fitData.success && fitData.fitAnalysis) {
-          currentFitAnalysis = fitData.fitAnalysis;
-          setOverallScore(fitData.fitAnalysis.overallScore || 75);
-          setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
-          if (Array.isArray(fitData.fitAnalysis.projectFits) && fitData.fitAnalysis.projectFits.length > 0) {
-            setProjectFits(fitData.fitAnalysis.projectFits);
+        if (fitRes.ok) {
+          const fitData = await fitRes.json();
+          if (fitData.success && fitData.fitAnalysis) {
+            currentFitAnalysis = fitData.fitAnalysis;
+            setOverallScore(fitData.fitAnalysis.overallScore || 75);
+            setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
+            if (Array.isArray(fitData.fitAnalysis.projectFits) && fitData.fitAnalysis.projectFits.length > 0) {
+              setProjectFits(fitData.fitAnalysis.projectFits);
+            }
           }
         }
       } catch (e) {
@@ -153,14 +171,17 @@ export default function App() {
       // Step 3: Roadmap Generation
       setAnalysisStatusText('Generating 3-step project build roadmap to close identified skill gaps...');
       try {
-        const roadRes = await fetch('/api/roadmap/generate', {
+        const roadRes = await fetchWithTimeout('/api/roadmap/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job: targetJob, fitAnalysis: currentFitAnalysis, companyResearch: companySignal }),
-        });
-        const roadData = await roadRes.json();
-        if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
-          setRecommendedProjects(roadData.recommendedProjects);
+        }, 5000);
+
+        if (roadRes.ok) {
+          const roadData = await roadRes.json();
+          if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
+            setRecommendedProjects(roadData.recommendedProjects);
+          }
         }
       } catch (e) {
         console.warn('Roadmap generate fetch fallback:', e);
@@ -169,7 +190,7 @@ export default function App() {
       // Step 4: Application Package Generation
       setAnalysisStatusText('Drafting tailored resume highlight & "why this role" blurb...');
       try {
-        const pkgRes = await fetch('/api/package/generate', {
+        const pkgRes = await fetchWithTimeout('/api/package/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -177,13 +198,16 @@ export default function App() {
             candidateInfo: { candidateName: 'Alex Chen', degree: 'B.S. Computer Science' },
             fitAnalysis: currentFitAnalysis,
           }),
-        });
-        const pkgData = await pkgRes.json();
-        if (pkgData.success && pkgData.appPackage) {
-          setAppPackage({
-            resumeHighlightSummary: pkgData.appPackage.resumeHighlightSummary || SAMPLE_APPLICATION_PACKAGE.resumeHighlightSummary,
-            whyThisRoleBlurb: pkgData.appPackage.whyThisRoleBlurb || SAMPLE_APPLICATION_PACKAGE.whyThisRoleBlurb,
-          });
+        }, 4000);
+
+        if (pkgRes.ok) {
+          const pkgData = await pkgRes.json();
+          if (pkgData.success && pkgData.appPackage) {
+            setAppPackage({
+              resumeHighlightSummary: pkgData.appPackage.resumeHighlightSummary || SAMPLE_APPLICATION_PACKAGE.resumeHighlightSummary,
+              whyThisRoleBlurb: pkgData.appPackage.whyThisRoleBlurb || SAMPLE_APPLICATION_PACKAGE.whyThisRoleBlurb,
+            });
+          }
         }
       } catch (e) {
         console.warn('Package generate fetch fallback:', e);
@@ -197,9 +221,11 @@ export default function App() {
       setTimeout(() => {
         const el = document.getElementById('step-fit');
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth' });
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-      }, 100);
+      }, 150);
     }
   };
 

@@ -18,6 +18,7 @@ import {
   logoutUser,
   deleteUserProfile,
   verifyAccessTokenMiddleware,
+  optionalAuthMiddleware,
 } from "./src/services/auth";
 
 dotenv.config();
@@ -182,7 +183,7 @@ app.delete("/api/profile", verifyAccessTokenMiddleware, async (req: any, res) =>
 // FIX #2: require real input — no more baked-in fake "Alex Chen" example used as a silent fallback.
 // FIX #4: now requires auth, so parsed data can be tied to the logged-in student.
 // -----------------------------------------------------------------------------
-app.post("/api/resume/parse", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/resume/parse", optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { resumeText, filename } = req.body;
 
@@ -281,7 +282,7 @@ Return a structured JSON object. If any field cannot be determined from the text
 // FIX #2: no more fabricated "representative" portfolio when a user has zero real repos.
 // FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/github/analyze", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/github/analyze", optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { username } = req.body;
     if (!username) {
@@ -363,7 +364,7 @@ app.post("/api/github/analyze", verifyAccessTokenMiddleware, async (req: any, re
 // Note: this backend does not scrape JDs itself — rawText/jobUrl should come from
 // the separate scraper tool's output.
 // -----------------------------------------------------------------------------
-app.post("/api/jd/parse", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/jd/parse", optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { jobUrl, rawText } = req.body;
 
@@ -426,7 +427,7 @@ Extract: title, company name, location, short description excerpt, required skil
 // FIX #2: no more generic filler text passed off as "research found" — model must say
 // NO_SIGNAL_FOUND explicitly if it can't find real, company-specific information.
 // -----------------------------------------------------------------------------
-app.post("/api/company/research", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/company/research", optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { companyName } = req.body;
     if (!companyName) {
@@ -471,7 +472,7 @@ If you cannot find real, company-specific information (this is common for smalle
 // 7. Fit Analysis Engine (Delegates to modular evaluateFit)
 // FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/analysis/fit", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/analysis/fit", optionalAuthMiddleware, async (req: any, res) => {
   try {
     const { repos, job, resumeData, companyResearch } = req.body;
     const ai = getGeminiClient();
@@ -509,7 +510,7 @@ app.post("/api/analysis/fit", verifyAccessTokenMiddleware, async (req: any, res)
 // 8. Project & Resume Roadmap Generator
 // FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/roadmap/generate", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/roadmap/generate", optionalAuthMiddleware, async (req: any, res) => {
   const { job, fitAnalysis, resumeGapAnalysis, consistencyCheck } = req.body;
 
   try {
@@ -530,7 +531,7 @@ app.post("/api/roadmap/generate", verifyAccessTokenMiddleware, async (req: any, 
 // 9. Application Package Generator
 // FIX #4: requires auth.
 // -----------------------------------------------------------------------------
-app.post("/api/package/generate", verifyAccessTokenMiddleware, async (req: any, res) => {
+app.post("/api/package/generate", optionalAuthMiddleware, async (req: any, res) => {
   const { job, candidateInfo } = req.body;
 
   try {

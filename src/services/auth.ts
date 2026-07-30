@@ -268,3 +268,26 @@ export function verifyAccessTokenMiddleware(req: any, res: any, next: any) {
     return res.status(401).json({ error: "Unauthorized: Invalid or expired access token." });
   }
 }
+
+// Middleware: Optional Access Token (Allows guest access while populating req.user if token exists)
+export function optionalAuthMiddleware(req: any, res: any, next: any) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    req.user = null;
+    return next();
+  }
+
+  const token = authHeader.split(" ")[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; email: string };
+    const user = db.users.get(decoded.userId);
+    if (user && !user.deletedAt) {
+      req.user = decoded;
+    } else {
+      req.user = null;
+    }
+  } catch (err: any) {
+    req.user = null;
+  }
+  next();
+}
