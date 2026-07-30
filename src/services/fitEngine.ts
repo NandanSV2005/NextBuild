@@ -8,6 +8,13 @@ export interface RepoInput {
   techStack?: string[];
   stars?: number;
   updatedAt?: string;
+  // NEW: real evidence data, fetched separately before this is passed in
+  readmeContent?: string | null; // null = genuinely not found, distinct from empty string
+  commits?: { date: string; message: string }[];
+  hasTests?: boolean;
+  hasCI?: boolean;
+  hasDocker?: boolean;
+  dependencyFile?: string | null;
 }
 
 export interface JobInput {
@@ -37,6 +44,7 @@ export interface EvaluateFitParams {
   aiClient?: any;
 }
 
+// FIX #2/#3: heuristic fallback now reports unknowns as unknown, not false-positive claims
 function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResearch: boolean): FitEngineResult {
   const reqSkills = (job.requiredSkills || []).map((s) => s.toLowerCase());
   const allRepoTech = (repos || []).flatMap((r) => r.techStack || []).map((t) => t.toLowerCase());
@@ -68,17 +76,20 @@ function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResear
       projectName: r.name || `Project ${i + 1}`,
       verdict: projVerdict,
       verdictColor: projColor,
-      readmeSummary: r.description || `Repository focusing on ${r.techStack?.join(', ') || 'software engineering'}.`,
+      readmeSummary: r.readmeContent
+        ? `README found — heuristic mode did not deep-read content (AI unavailable).`
+        : `No README content available for this repository.`,
       engineeringSignals: {
-        commitPattern: 'Regular development commits over time.',
-        hasTests: true,
-        hasCI: false,
-        hasDeployment: true,
-        appearsOriginal: true,
-        lastActive: r.updatedAt || 'Recent',
+        // FIX #3: unknown fields report null, not a fabricated favorable default
+        commitPattern: r.commits && r.commits.length > 0 ? 'Not analyzed (heuristic fallback)' : 'Not determined',
+        hasTests: typeof r.hasTests === 'boolean' ? r.hasTests : null,
+        hasCI: typeof r.hasCI === 'boolean' ? r.hasCI : null,
+        hasDeployment: null,
+        appearsOriginal: null,
+        lastActive: r.updatedAt || 'Unknown',
       },
       reasoning: repoMatches.length > 0
-        ? `Demonstrates key required skills (${repoMatches.join(', ')}) matching target JD requirements.`
+        ? `Demonstrates key required skills (${repoMatches.join(', ')}) matching target JD requirements based on tech-tag overlap only (AI deep analysis unavailable).`
         : `Repository technology stack does not directly reflect primary required job skills.`,
     };
   });
@@ -92,7 +103,7 @@ function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResear
         projectName: 'Candidate Portfolio',
         verdict: 'Partial Match',
         verdictColor: 'amber',
-        reasoning: 'Portfolio evaluated against job required competencies.',
+        reasoning: 'Portfolio evaluated against job required competencies using heuristic fallback only.',
       }
     ],
     informedByCompanyResearch: hasCompanyResearch,
@@ -116,19 +127,21 @@ export async function evaluateFit(params: EvaluateFitParams): Promise<FitEngineR
       });
     }
 
-    // 1. GitHub Deep Analysis — README + commit pattern + engineering maturity + originality
-    const githubFitPrompt = `You are a strict, pragmatic senior software engineering hiring manager conducting a thorough technical review. Read and reason through each project before scoring — do not pattern-match on tech tags alone.
+    // FIX #1: prompt now explicitly built around REAL fetched evidence (readme, commits, tests/CI/docker,
+    // dependency file) instead of asking the model to reason about data it was never given.
+    // FIX #2: explicit instruction to state "not found" rather than infer/hallucinate when data is missing.
+    const githubFitPrompt = `You are a strict, pragmatic senior software engineering hiring manager conducting a thorough technical review. Read and reason through each project's ACTUAL fetched evidence before scoring — do not pattern-match on tech tags alone, and do NOT invent details for evidence that is missing.
 
-Candidate Repositories (include README, language breakdown, commit history/dates, dependency files, presence of tests/CI/Docker config, if available): ${JSON.stringify(repos || [])}
+Candidate Repositories (each includes real fetched data: readmeContent, recent commits, hasTests, hasCI, hasDocker, dependencyFile — if a field is null/empty, that means it genuinely was not found, not that you should guess): ${JSON.stringify(repos || [])}
 Target Job: ${JSON.stringify(job || {})}
 Company Technical Context: ${hasCompanyResearch ? companyResearch : "None provided (use JD requirements only)"}
 
 For EACH project, work through:
-1. README claims vs. reality: what does the README say the project does? Does the language breakdown, folder structure, and dependency file support that claim?
-2. Commit pattern: does commit history show incremental, real development over time, or a single/few large commits suggesting the code was written elsewhere and uploaded? Note this explicitly — it's a real signal of hands-on engineering vs. copy/paste.
-3. Engineering maturity: is there a tests folder, CI config, Dockerfile, or a live deployment link? Their presence suggests production-minded habits; their total absence in an otherwise complex project is worth noting, not just ignoring.
-4. Originality: does this look like a fork, a close clone of a known tutorial/bootcamp project, or original work? State your confidence on this plainly — don't score tutorial-following work the same as original problem-solving.
-5. Recency: how recent is the most recent commit? A skill demonstrated 3 years ago and untouched since is weaker evidence of current ability than recent work.
+1. README claims vs. reality: if readmeContent is present, what does it say the project does? Does the language/tech stack and dependencyFile support that claim? If readmeContent is null, explicitly state "No README found" rather than inferring purpose from the repo name.
+2. Commit pattern: look at the actual commits array. Does it show incremental development over time (multiple commits with meaningfully different dates/messages), or a single/few large commits suggesting the code was written elsewhere and uploaded? If commits data is empty, state that commit history could not be analyzed.
+3. Engineering maturity: use the real hasTests, hasCI, hasDocker fields directly — do not guess. Their presence suggests production-minded habits; their absence in an otherwise complex project is worth noting.
+4. Originality: based on the README and file structure, does this look like a fork, a close clone of a known tutorial/bootcamp project, or original work? State your confidence plainly, and say "cannot determine" if there isn't enough evidence either way.
+5. Recency: use the real lastActive/updatedAt date.
 6. Relevance to this specific JD (and company context, if provided) — not general competence.
 
 CRITICAL SCORING RULES:
@@ -136,12 +149,13 @@ CRITICAL SCORING RULES:
 2. Substantive, README-and-commit-backed 80%+ requirement coverage → score 80-100, verdict 'Strong Match'.
 3. Tags unsupported by README/commits/dependencies must be called out, not silently trusted.
 4. Never default to 'Partial Match' when uncertain — state what's missing to resolve the uncertainty.
+5. If evidence for a project is almost entirely absent (no README, no commits, no dependency file), say so explicitly in the reasoning and score conservatively — do not fabricate confidence.
 
 For EACH project, provide:
 - id & projectName
 - verdict: 'Direct Match' | 'Partial Match' | 'Weak Match' | 'Missing Tech'
 - verdictColor: 'green' | 'amber' | 'red'
-- readmeSummary: 1-2 sentences on what the README claims
+- readmeSummary: 1-2 sentences on what the README actually says, or "No README found" if null
 - engineeringSignals: { commitPattern: string, hasTests: boolean, hasCI: boolean, hasDeployment: boolean, appearsOriginal: boolean, lastActive: string }
 - reasoning: 3-5 sentences citing specific evidence, stating whether tags were actually backed up, and whether company research or JD-only informed the verdict`;
 
@@ -199,14 +213,15 @@ For EACH project, provide:
           projectName: pf.projectName || repos[idx]?.name || `Project ${idx + 1}`,
           verdict: ['Direct Match', 'Partial Match', 'Weak Match', 'Missing Tech'].includes(pf.verdict) ? pf.verdict : 'Partial Match',
           verdictColor: ['green', 'amber', 'red'].includes(pf.verdictColor) ? pf.verdictColor : 'amber',
-          readmeSummary: pf.readmeSummary || `Repository focusing on ${repos[idx]?.techStack?.join(', ') || 'software engineering'}.`,
+          readmeSummary: pf.readmeSummary || (repos[idx]?.readmeContent ? `Repository focusing on ${repos[idx]?.techStack?.join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
+          // FIX #3: default to null/unknown, never a fabricated favorable claim, when the model omits a field
           engineeringSignals: pf.engineeringSignals || {
-            commitPattern: 'Incremental commits over time.',
-            hasTests: true,
-            hasCI: false,
-            hasDeployment: true,
-            appearsOriginal: true,
-            lastActive: repos[idx]?.updatedAt || 'Recent',
+            commitPattern: 'Not determined',
+            hasTests: null,
+            hasCI: null,
+            hasDeployment: null,
+            appearsOriginal: null,
+            lastActive: repos[idx]?.updatedAt || 'Unknown',
           },
           reasoning: pf.reasoning || 'Project evaluated against required job skills.',
         }))
@@ -228,23 +243,12 @@ For EACH project, provide:
 // 2. Resume Deep Analysis Function
 export async function evaluateResumeDeep(resumeData: any, job: JobInput, aiClient?: any): Promise<ResumeGapAnalysis> {
   const fallback: ResumeGapAnalysis = {
-    matchSummary: 'Candidate resume satisfies core software development competencies with strong technical foundation.',
-    missingRequirements: [
-      { requirement: 'Distributed Message Queues (Kafka/RabbitMQ)', whyItMatters: 'Target role requires asynchronous queue processing.' }
-    ],
-    unbackedKeywords: [
-      { skill: 'Kubernetes', whyThisIsAProblem: 'Listed under skills list but missing hands-on cluster deployment project entry.' }
-    ],
-    weakAreas: [
-      { area: 'Quantified Performance Impact', issue: 'Experience bullets describe tasks without percentage efficiency numbers.' }
-    ],
-    atsPhrasingGaps: [
-      { jdTerm: 'CI/CD Pipelines', resumePhrasing: 'Automation Build Scripts', risk: 'Risk of ATS keyword drop.' }
-    ],
-    resumeQualityNotes: [
-      'Include measurable business metrics in project bullet points.',
-      'Align resume headers with exact target role titles.'
-    ],
+    matchSummary: 'Resume analysis unavailable — AI service could not be reached. Showing placeholder result; retry when possible.',
+    missingRequirements: [],
+    unbackedKeywords: [],
+    weakAreas: [],
+    atsPhrasingGaps: [],
+    resumeQualityNotes: ['Automated analysis failed — please retry.'],
   };
 
   try {
@@ -356,7 +360,7 @@ export async function checkResumeGithubConsistency(resumeData: any, githubFitAna
   const fallback: ConsistencyCheck = {
     overclaimFlags: [],
     missingStrongProjects: [],
-    overallConsistencyNote: 'Resume claims and GitHub repository evidence show consistent alignment across core technologies.',
+    overallConsistencyNote: 'Consistency check unavailable — AI service could not be reached.',
   };
 
   try {
@@ -440,16 +444,12 @@ export async function generateGithubRoadmap(
   const fallbackProjects: RecommendedProject[] = [
     {
       id: "rec-1",
-      title: "Scalable Microservices API & Caching Layer",
-      addressesGap: "Distributed Queue & API Performance Gap",
-      problemStatement: "Build an asynchronous event-driven monitoring dashboard utilizing FastAPI, Redis cache, and Docker containerization.",
-      techStack: ["FastAPI", "Redis", "Docker", "React", "PostgreSQL"],
-      estimatedBuildTime: "~5 days",
-      milestones: [
-        { stepNumber: 1, title: "Backend API & Redis Caching", description: "Implement FastAPI REST endpoints integrated with Redis cache layer." },
-        { stepNumber: 2, title: "Containerization & Database", description: "Write Dockerfile & docker-compose for PostgreSQL and web server." },
-        { stepNumber: 3, title: "Frontend Dashboard UI", description: "Build interactive React UI displaying system health metrics." },
-      ],
+      title: "Roadmap generation unavailable",
+      addressesGap: "AI service could not be reached — please retry.",
+      problemStatement: "Automated roadmap generation failed.",
+      techStack: [],
+      estimatedBuildTime: "Unknown",
+      milestones: [],
     },
   ];
 
@@ -468,7 +468,7 @@ export async function generateGithubRoadmap(
 Target Job: ${JSON.stringify(job || {})}
 GitHub Fit Analysis: ${JSON.stringify(githubFitAnalysis || {})}
 
-Generate 2-3 hands-on software project recommendations to close repository code & engineering maturity gaps (tests, CI/CD, microservices, async processing).
+Generate 2-3 hands-on software project recommendations to close repository code & engineering maturity gaps (tests, CI/CD, microservices, async processing) — base these on the ACTUAL gaps found in the fit analysis above, not generic suggestions.
 
 For each project:
 - title: project title
@@ -528,6 +528,24 @@ For each project:
 }
 
 // 5. Distinct Resume Skill & Career Mastery Roadmap Generator
+// FIX #5: no longer asks the model to invent resource URLs (hallucination risk). Returns a topic
+// name instead; map to a small set of verified, hardcoded doc URLs where possible.
+const VERIFIED_RESOURCE_LINKS: Record<string, string> = {
+  "fastapi": "https://fastapi.tiangolo.com/",
+  "react": "https://react.dev",
+  "typescript": "https://www.typescriptlang.org/docs/",
+  "docker": "https://docs.docker.com/",
+  "redis": "https://redis.io/docs/latest/",
+  "kubernetes": "https://kubernetes.io/docs/home/",
+  "postgresql": "https://www.postgresql.org/docs/",
+  "kafka": "https://kafka.apache.org/documentation/",
+};
+
+function resolveVerifiedLink(topic: string): string | null {
+  const key = Object.keys(VERIFIED_RESOURCE_LINKS).find((k) => topic.toLowerCase().includes(k));
+  return key ? VERIFIED_RESOURCE_LINKS[key] : null;
+}
+
 export async function generateResumeRoadmap(
   job: JobInput,
   gapAnalysis: any,
@@ -537,31 +555,11 @@ export async function generateResumeRoadmap(
   const fallbackResumeRoadmap = [
     {
       stepNumber: 1,
-      topic: "ATS Keyword Phrasing & Title Alignment",
-      problemIdentified: "Resume uses generic 'web scripts' instead of exact JD term 'CI/CD Pipelines'.",
-      actionPlan: "Rephrase experience bullet points to match exact ATS keyword terminology used in target posting.",
-      recommendedResourceUrl: "https://react.dev",
-    },
-    {
-      stepNumber: 2,
-      topic: "Quantified Impact & Business Outcomes",
-      problemIdentified: "Bullet points describe duty listings without measurable metrics.",
-      actionPlan: "Rewrite bullet points using Google X-Y-Z formula: 'Accomplished [X] as measured by [Y], by doing [Z]'.",
-      recommendedResourceUrl: "https://www.typescriptlang.org/docs/",
-    },
-    {
-      stepNumber: 3,
-      topic: "Mastering Missing Required Concepts",
-      problemIdentified: "Missing hands-on experience backing for Redis and Kafka distributed queues.",
-      actionPlan: "Complete official documentation tutorials for Redis caching and message brokers.",
-      recommendedResourceUrl: "https://fastapi.tiangolo.com/",
-    },
-    {
-      stepNumber: 4,
-      topic: "Free Resume Wins (GitHub Integration)",
-      problemIdentified: "Strong public GitHub repositories are missing from resume experience section.",
-      actionPlan: "Add repository links and technical bullet points for top 2 GitHub projects to resume.",
-      recommendedResourceUrl: "https://docs.docker.com/",
+      topic: "Resume roadmap generation unavailable",
+      problemIdentified: "AI service could not be reached — please retry.",
+      actionPlan: "Retry the analysis once the service is available.",
+      recommendedResourceTopic: null,
+      recommendedResourceUrl: null,
     },
   ];
 
@@ -584,7 +582,7 @@ Target Job: ${JSON.stringify(job || {})}
 Provide a structured 4-step Resume & Career Action Roadmap addressing:
 1. ATS Phrasing & Keyword Alignment: exact terms to rephrase on resume.
 2. Quantified Impact & Bullet Point Rewrites: how to rewrite vague duty listings into metric-driven bullets.
-3. Core Technical Concepts & Documentation to Master: specific skills to study with official learning URLs.
+3. Core Technical Concepts to Master: specific skills to study (name the technology/topic only — do NOT invent a URL).
 4. Resume/GitHub Consistency Action: free resume wins (adding missing GitHub repos or fixing overclaim risks).
 
 For each step, provide:
@@ -592,7 +590,7 @@ For each step, provide:
 - topic: string
 - problemIdentified: string
 - actionPlan: string
-- recommendedResourceUrl: string`;
+- recommendedResourceTopic: string — the name of the technology/concept to study (e.g., "FastAPI dependency injection"), NOT a URL`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -611,7 +609,7 @@ For each step, provide:
                   topic: { type: Type.STRING },
                   problemIdentified: { type: Type.STRING },
                   actionPlan: { type: Type.STRING },
-                  recommendedResourceUrl: { type: Type.STRING },
+                  recommendedResourceTopic: { type: Type.STRING },
                 },
               },
             },
@@ -622,7 +620,12 @@ For each step, provide:
 
     const parsed = JSON.parse(response.text || "{}");
     if (Array.isArray(parsed.resumeRoadmap) && parsed.resumeRoadmap.length > 0) {
-      return parsed.resumeRoadmap;
+      // FIX #5: attach a verified URL only if we have one on file; otherwise null (frontend should
+      // render "search official docs for {topic}" rather than a possibly-broken link)
+      return parsed.resumeRoadmap.map((step: any) => ({
+        ...step,
+        recommendedResourceUrl: resolveVerifiedLink(step.recommendedResourceTopic || ""),
+      }));
     }
     return fallbackResumeRoadmap;
   } catch (err) {
@@ -630,4 +633,3 @@ For each step, provide:
     return fallbackResumeRoadmap;
   }
 }
-
