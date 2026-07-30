@@ -6,12 +6,14 @@ interface FitAnalysisSectionProps {
   overallScore: number; // e.g. 74
   verdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
   projectFits: ProjectFit[];
+  totalReposCount?: number;
 }
 
 export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
   overallScore,
   verdict,
   projectFits,
+  totalReposCount,
 }) => {
   // Determine verdict badge styling
   let badgeBg = 'bg-[#F2A93B] text-[#10253F]';
@@ -27,6 +29,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
 
   const BadgeIcon = badgeIcon;
 
+  const repoCountToDisplay = totalReposCount && totalReposCount > 0 ? totalReposCount : projectFits.length;
   const matchCount = projectFits.filter((f) => f.verdictColor === 'green').length;
   const gapCount = projectFits.filter((f) => f.verdictColor === 'amber' || f.verdictColor === 'red').length;
 
@@ -63,7 +66,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
             </div>
 
             <div className="text-left sm:text-right text-xs font-body text-[#7C93AC] max-w-xs">
-              Analyzed {projectFits.length} repositories against job requirements. Evaluated {matchCount} direct matches and {gapCount} skill gaps.
+              Analyzed {repoCountToDisplay} public repositories against job requirements. Evaluated {matchCount} direct matches and {gapCount} skill gaps.
             </div>
           </div>
 

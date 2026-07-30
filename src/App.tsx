@@ -352,6 +352,7 @@ export default function App() {
               overallScore={overallScore}
               verdict={verdict}
               projectFits={projectFits}
+              totalReposCount={repos.length}
             />
 
             <RoadmapSection recommendedProjects={recommendedProjects} />
