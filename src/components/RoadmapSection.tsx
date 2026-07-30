@@ -9,53 +9,98 @@ interface RoadmapSectionProps {
 }
 
 interface ReliableResource {
+  stepNumber: number;
   skill: string;
   category: string;
+  estimatedTime: string;
   description: string;
+  whatToLearn: string[];
   linkText: string;
   url: string;
 }
 
 const RELIABLE_LEARNING_RESOURCES: ReliableResource[] = [
   {
+    stepNumber: 1,
     skill: 'React & Modern Frontend Architecture',
     category: 'Frontend Engineering',
-    description: 'Master React 19 server components, state management, and custom hooks.',
+    estimatedTime: '~3–4 Days',
+    description: 'Master component architecture, state management, and modern React 19 server patterns.',
+    whatToLearn: [
+      'React 19 Server Components vs Client Components',
+      'Custom Hooks & Context State Management',
+      'Performance Optimization, Memoization & Re-render Prevention',
+    ],
     linkText: 'React Official Documentation (react.dev)',
     url: 'https://react.dev',
   },
   {
+    stepNumber: 2,
     skill: 'TypeScript Strict Type Systems',
     category: 'Type Safety',
-    description: 'Learn strict generics, utility types, and enterprise type safety.',
+    estimatedTime: '~2–3 Days',
+    description: 'Learn strict generics, utility types, and enterprise-grade type safety.',
+    whatToLearn: [
+      'Strict Generics & Type Constraints (<T extends object>)',
+      'Utility Types (Pick, Omit, Partial, Record, ReturnType)',
+      'Discriminated Unions & Custom Type Guards',
+    ],
     linkText: 'TypeScript Official Handbook (typescriptlang.org)',
     url: 'https://www.typescriptlang.org/docs/',
   },
   {
+    stepNumber: 3,
     skill: 'FastAPI & Async Python Backends',
     category: 'API & Microservices',
+    estimatedTime: '~3–4 Days',
     description: 'Build high-throughput asynchronous RESTful APIs with Pydantic validation.',
+    whatToLearn: [
+      'Asynchronous Endpoints (async/await) & Event Loops',
+      'Pydantic Schema Validation & Request Data Parsing',
+      'Dependency Injection Systems & Security Middlewares',
+    ],
     linkText: 'FastAPI Official Documentation (fastapi.tiangolo.com)',
     url: 'https://fastapi.tiangolo.com/',
   },
   {
+    stepNumber: 4,
     skill: 'PostgreSQL Relational DB & Query Optimization',
     category: 'Database Design',
-    description: 'Master indexing, ACID transactions, and complex SQL join queries.',
+    estimatedTime: '~4–5 Days',
+    description: 'Master relational schema design, indexing strategies, and SQL query tuning.',
+    whatToLearn: [
+      'B-Tree Indexing & Query Execution Plans (EXPLAIN ANALYZE)',
+      'ACID Transactions & Row Locking Isolation Levels',
+      'Complex SQL Joins, Aggregations & Window Functions',
+    ],
     linkText: 'PostgreSQL Official Documentation (postgresql.org)',
     url: 'https://www.postgresql.org/docs/',
   },
   {
+    stepNumber: 5,
     skill: 'Docker Containers & Cloud Microservices',
     category: 'DevOps & Deployment',
-    description: 'Containerize multi-container applications with Docker Compose and healthchecks.',
+    estimatedTime: '~3–4 Days',
+    description: 'Containerize multi-container software architectures with Docker Compose.',
+    whatToLearn: [
+      'Multi-stage Dockerfile Builds for Minimal Image Size',
+      'Docker Compose Multi-service Container Orchestration',
+      'Container Networking, Volume Mounts & Healthchecks',
+    ],
     linkText: 'Docker Official Documentation (docs.docker.com)',
     url: 'https://docs.docker.com/',
   },
   {
+    stepNumber: 6,
     skill: 'System Design & Architectural Design Patterns',
     category: 'Software Architecture',
-    description: 'Learn clean code principles, design patterns, and scalable system design.',
+    estimatedTime: '~4–5 Days',
+    description: 'Learn clean architecture principles, design patterns, and scalable microservice design.',
+    whatToLearn: [
+      'SOLID Principles & Gang of Four Structural Design Patterns',
+      'Caching Strategies (Read-through, Write-through, Redis)',
+      'Event-Driven Architecture & Message Queues (RabbitMQ/Kafka)',
+    ],
     linkText: 'Refactoring.Guru Architecture & Patterns (refactoring.guru)',
     url: 'https://refactoring.guru/design-patterns',
   },
@@ -71,10 +116,6 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
     ? recommendedProjects
     : SAMPLE_RECOMMENDED_PROJECTS;
 
-  // Score-Based Project Reduction Rules
-  // 1. If score === 100: 0 projects needed (Perfect Match)
-  // 2. If score > 95: 1 high-impact capstone project
-  // 3. Otherwise: full 3 projects
   let projectsToDisplay: RecommendedProject[] = fullProjectsList;
   if (overallScore === 100) {
     projectsToDisplay = [];
@@ -361,48 +402,81 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
               )}
             </>
           ) : (
-            /* TAB 2: Resume Skill Mastery & Curated Reliable Links */
-            <div className="space-y-4">
+            /* TAB 2: Resume Skill Mastery Step-by-Step Roadmap */
+            <div className="space-y-6">
               <div className="p-4 bg-[#3D6FB4]/15 border border-[#3D6FB4] rounded-md text-xs font-body text-[#7C93AC] space-y-1">
                 <span className="font-semibold text-[#F2F0E6] block text-sm">
-                  Resume Skill Mastery Guide
+                  Resume Skill Mastery Roadmap
                 </span>
                 <p>
-                  Master these core technical competencies to boost your resume match rating. Below are curated, official, and high-authority documentation resources.
+                  Follow this sequential learning roadmap to master essential technical competencies. Each step outlines estimated study time, key concepts to learn, and official documentation links.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {RELIABLE_LEARNING_RESOURCES.map((res, idx) => (
+              {/* Sequential Roadmap Cards */}
+              <div className="space-y-4">
+                {RELIABLE_LEARNING_RESOURCES.map((res) => (
                   <div
-                    key={idx}
-                    className="p-4 bg-[#10253F] border border-[#3D6FB4] hover:border-[#F2A93B]/70 rounded-lg space-y-3 transition-colors flex flex-col justify-between"
+                    key={res.stepNumber}
+                    className="p-5 bg-[#10253F] border border-[#3D6FB4] hover:border-[#F2A93B]/70 rounded-lg space-y-4 transition-all"
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="px-2 py-0.5 text-[10px] font-mono-data uppercase font-bold bg-[#F2A93B]/15 text-[#F2A93B] border border-[#F2A93B]/40 rounded">
+                    {/* Header Row: Step Badge + Category + Duration */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#3D6FB4]/30 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="px-2.5 py-1 text-xs font-mono-data font-bold bg-[#F2A93B] text-[#10253F] rounded-md">
+                          STEP {res.stepNumber}
+                        </span>
+                        <span className="px-2 py-0.5 text-[11px] font-mono-data uppercase font-bold bg-[#3D6FB4]/30 text-[#F2A93B] border border-[#3D6FB4] rounded">
                           {res.category}
                         </span>
                       </div>
 
-                      <h4 className="font-display font-semibold text-base text-[#F2F0E6]">
+                      <div className="font-body text-xs font-semibold text-[#7C93AC] flex items-center space-x-1.5 bg-[#3D6FB4]/10 px-2.5 py-1 rounded border border-[#3D6FB4]/30">
+                        <Clock className="w-3.5 h-3.5 text-[#F2A93B]" />
+                        <span>Estimated Study Time: <strong className="text-[#F2F0E6]">{res.estimatedTime}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Skill Title & High-level Goal */}
+                    <div className="space-y-1">
+                      <h4 className="font-display font-bold text-lg text-[#F2F0E6]">
                         {res.skill}
                       </h4>
-
-                      <p className="font-body text-xs text-[#7C93AC] leading-relaxed">
+                      <p className="font-body text-xs sm:text-sm text-[#7C93AC] leading-relaxed">
                         {res.description}
                       </p>
                     </div>
 
-                    <a
-                      href={res.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-1.5 font-mono-data text-xs text-[#F2A93B] hover:underline font-semibold pt-2 border-t border-[#3D6FB4]/30"
-                    >
-                      <span>{res.linkText}</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
+                    {/* What You Need to Learn (Core Mastery Bullet Points) */}
+                    <div className="p-4 bg-[#3D6FB4]/10 border border-[#3D6FB4]/40 rounded-md space-y-2">
+                      <span className="font-mono-data text-xs uppercase font-bold text-[#F2A93B] tracking-wider block">
+                        What You Need To Learn & Master:
+                      </span>
+                      <ul className="space-y-1.5">
+                        {res.whatToLearn.map((topic, i) => (
+                          <li key={i} className="flex items-start space-x-2 text-xs font-body text-[#F2F0E6]">
+                            <CheckCircle2 className="w-4 h-4 text-[#4FA87B] shrink-0 mt-0.5" />
+                            <span>{topic}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Recommended Learning Resource Link */}
+                    <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#3D6FB4]/30">
+                      <span className="font-body text-xs text-[#7C93AC]">
+                        Official Learning Source:
+                      </span>
+                      <a
+                        href={res.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-1.5 font-mono-data text-xs text-[#F2A93B] hover:underline font-semibold"
+                      >
+                        <span>{res.linkText}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
                   </div>
                 ))}
               </div>
