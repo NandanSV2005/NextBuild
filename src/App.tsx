@@ -332,33 +332,35 @@ export default function App() {
             </section>
 
             {/* High-Tech Animated Blueprint Loading Screen */}
-            {isAnalyzing && (
+            {isAnalyzing ? (
               <BlueprintLoadingAnimation
                 statusText={analysisStatusText}
                 companyName={currentJob.company}
                 githubUser={connectedGithubUser}
                 reposCount={repos.length > 0 ? repos.length : 16}
               />
+            ) : (
+              <>
+                {/* Results Content */}
+                <FitAnalysisSection
+                  overallScore={overallScore}
+                  verdict={verdict}
+                  projectFits={projectFits}
+                  totalReposCount={repos.length}
+                />
+
+                <RoadmapSection
+                  recommendedProjects={recommendedProjects}
+                  overallScore={overallScore}
+                />
+
+                <ApplicationPackageSection
+                  appPackage={appPackage}
+                  currentStatus={applicationStatus}
+                  onStatusChange={setApplicationStatus}
+                />
+              </>
             )}
-
-            {/* Results Content */}
-            <FitAnalysisSection
-              overallScore={overallScore}
-              verdict={verdict}
-              projectFits={projectFits}
-              totalReposCount={repos.length}
-            />
-
-            <RoadmapSection
-              recommendedProjects={recommendedProjects}
-              overallScore={overallScore}
-            />
-
-            <ApplicationPackageSection
-              appPackage={appPackage}
-              currentStatus={applicationStatus}
-              onStatusChange={setApplicationStatus}
-            />
           </div>
         )}
       </main>

@@ -12,31 +12,59 @@ interface FitAnalysisSectionProps {
 const SAMPLE_RESUME_FITS: ProjectFit[] = [
   {
     id: 'res-fit-1',
-    projectName: 'Resume Competency: Frontend & State Management',
+    projectName: 'Resume Competency 1: Frontend & Component Architecture',
     verdict: 'Direct Match',
     verdictColor: 'green',
-    reasoning: 'Your resume demonstrates 2+ years of production experience in React, TypeScript, and modern component state architectures.',
+    reasoning: 'Your resume demonstrates 2+ years of production experience in React, TypeScript, and modern component state architectures matching target job requirements.',
   },
   {
     id: 'res-fit-2',
-    projectName: 'Resume Competency: Backend Microservices & REST APIs',
+    projectName: 'Resume Competency 2: Backend Async APIs & REST Microservices',
     verdict: 'Direct Match',
     verdictColor: 'green',
     reasoning: 'Strong evidence of Python/FastAPI async endpoint design, SQL query optimization, and authentication middleware.',
   },
   {
-    id: 'res-fit-[#3]',
-    projectName: 'Resume Competency: Cloud Infrastructure & Containerization',
-    verdict: 'Partial Match',
-    verdictColor: 'amber',
-    reasoning: 'Demonstrates solid Docker container usage; target role prefers hands-on Kubernetes or Terraform deployment experience.',
+    id: 'res-fit-3',
+    projectName: 'Resume Competency 3: Relational Database Design & Query Tuning',
+    verdict: 'Direct Match',
+    verdictColor: 'green',
+    reasoning: 'Explicitly demonstrates PostgreSQL schema indexing, ACID transactions, and complex SQL joins.',
   },
   {
-    id: 'res-fit-[#4]',
-    projectName: 'Resume Competency: Distributed Messaging & Caching',
+    id: 'res-fit-4',
+    projectName: 'Resume Competency 4: Cloud Infrastructure & Containerization',
+    verdict: 'Partial Match',
+    verdictColor: 'amber',
+    reasoning: 'Demonstrates solid Docker container usage; target role requires hands-on Kubernetes cluster orchestration or Terraform deployment experience which is not yet listed on resume.',
+  },
+  {
+    id: 'res-fit-5',
+    projectName: 'Resume Competency 5: Distributed Messaging & Caching',
     verdict: 'Missing Tech',
     verdictColor: 'red',
-    reasoning: 'Redis and Kafka queue architectures are highlighted in JD requirements but not yet explicitly documented on resume.',
+    reasoning: 'Redis cache and Kafka/RabbitMQ queue architectures are highlighted in JD requirements but not yet explicitly documented on resume.',
+  },
+  {
+    id: 'res-fit-6',
+    projectName: 'Resume Competency 6: Automated Testing & CI/CD Pipelines',
+    verdict: 'Partial Match',
+    verdictColor: 'amber',
+    reasoning: 'Mentions unit testing basics; lacks automated GitHub Actions CI/CD pipeline configuration or integration testing suites on candidate resume.',
+  },
+  {
+    id: 'res-fit-7',
+    projectName: 'Resume Competency 7: System Design & Microservice Design Patterns',
+    verdict: 'Weak Match',
+    verdictColor: 'red',
+    reasoning: 'Lacks documented experience with distributed system design patterns, token-bucket rate limiters, or load balancers required for mid/senior level roles.',
+  },
+  {
+    id: 'res-fit-8',
+    projectName: 'Resume Competency 8: Quantified Business Impact & ATS Keywords',
+    verdict: 'Partial Match',
+    verdictColor: 'amber',
+    reasoning: 'Strong technical skills listed; experience bullet points describe duty listings without quantified performance metrics (e.g., "reduced latency by 35%").',
   },
 ];
 
@@ -134,7 +162,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>Resume Competencies (4)</span>
+                <span>Resume Competencies ({SAMPLE_RESUME_FITS.length})</span>
               </button>
             </div>
           </div>
@@ -175,6 +203,31 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
                   <p className="font-body text-sm text-[#F2F0E6] leading-relaxed">
                     {fit.reasoning}
                   </p>
+
+                  {/* Explicit "Why" Explanation Callout Box for Partial/Weak/Missing Matches */}
+                  {fit.verdictColor === 'amber' && (
+                    <div className="p-3 bg-[#F2A93B]/10 border border-[#F2A93B]/40 rounded-md text-xs font-body text-[#F2F0E6] flex items-start space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-[#F2A93B] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#F2A93B] block font-mono-data uppercase text-[11px]">
+                          Why Partial Match:
+                        </span>
+                        <span>{fit.reasoning}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {fit.verdictColor === 'red' && (
+                    <div className="p-3 bg-[#C4634F]/10 border border-[#C4634F]/40 rounded-md text-xs font-body text-[#F2F0E6] flex items-start space-x-2">
+                      <XCircle className="w-4 h-4 text-[#C4634F] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-[#C4634F] block font-mono-data uppercase text-[11px]">
+                          Why {fit.verdict}:
+                        </span>
+                        <span>{fit.reasoning}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Engineering Signals Breakdown */}
                   {fit.engineeringSignals && activeTab === 'github' && (
