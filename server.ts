@@ -198,7 +198,14 @@ Parse the following resume content into structured candidate data.
 Resume Filename: ${filename || "Uploaded_Resume.pdf"}
 Resume Text: ${resumeText}
 
-Return a structured JSON object detailing candidate name, degree, top skills, experience summary, and project entries listed on the resume. If any field cannot be determined from the text, return an empty string or empty array for it rather than inventing plausible-sounding content.`;
+Return a structured JSON object. If any field cannot be determined from the text, return an empty string/array/null rather than inventing plausible-sounding content.
+- candidateName, degree
+- certifications: any certifications or relevant coursework mentioned (empty array if none)
+- totalYearsExperience: estimated total years of professional/internship experience, based on dates in the resume (0 if fresher/no experience listed, null if genuinely undeterminable)
+- topSkills: string array
+- experienceSummary: string
+- experienceEntries: array of { role, company, startDate, endDate, description } — extract actual dates as written (e.g., "Jun 2024", "2023-2024") so they can later be cross-checked against GitHub activity; use null for a field if not stated
+- projectsListed: array of { title, description, techUsed, approxDate } — approxDate from any date mentioned near the project entry, null if none given`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -210,11 +217,29 @@ Return a structured JSON object detailing candidate name, degree, top skills, ex
           properties: {
             candidateName: { type: Type.STRING },
             degree: { type: Type.STRING },
+            certifications: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            totalYearsExperience: { type: Type.NUMBER },
             topSkills: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
             },
             experienceSummary: { type: Type.STRING },
+            experienceEntries: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  role: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  startDate: { type: Type.STRING },
+                  endDate: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                },
+              },
+            },
             projectsListed: {
               type: Type.ARRAY,
               items: {
@@ -226,6 +251,7 @@ Return a structured JSON object detailing candidate name, degree, top skills, ex
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
                   },
+                  approxDate: { type: Type.STRING },
                 },
               },
             },
@@ -356,7 +382,7 @@ Parse the target job posting into standardized requirements.
 Job Posting URL: ${jobUrl || "Not provided"}
 Raw JD Text: ${rawText || "Not provided — infer only what is reasonable from the URL context, and leave fields empty if truly unknown."}
 
-Extract structured job details: title, company name, location, short description excerpt, required skills list, and domain (e.g. Full-Stack, Backend, AI/ML). If a field cannot be determined, return an empty string or empty array rather than inventing a plausible-sounding value.`;
+Extract: title, company name, location, short description excerpt, required skills list, domain (e.g. Full-Stack, Backend, AI/ML), seniorityLevel (e.g. "Fresher/Entry", "0-2 years", "Mid", "Senior" — infer from years-of-experience language or title cues like "Senior"/"Lead"), and yearsOfExperienceRequired (a number if a specific figure is stated, null otherwise). If a field cannot be determined, return an empty string/null rather than inventing a plausible-sounding value.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -377,6 +403,8 @@ Extract structured job details: title, company name, location, short description
               items: { type: Type.STRING },
             },
             domain: { type: Type.STRING },
+            seniorityLevel: { type: Type.STRING },
+            yearsOfExperienceRequired: { type: Type.NUMBER },
           },
         },
       },

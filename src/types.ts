@@ -15,6 +15,34 @@ export interface JobPosting {
   url: string;
   descriptionSnippet: string;
   requiredSkills: string[];
+  seniorityLevel?: string;
+  yearsOfExperienceRequired?: number;
+}
+
+export interface ExperienceEntry {
+  role?: string;
+  company?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface ParsedResumeProject {
+  title?: string;
+  description?: string;
+  techUsed?: string[];
+  approxDate?: string;
+}
+
+export interface ParsedResumeData {
+  candidateName?: string;
+  degree?: string;
+  certifications?: string[];
+  totalYearsExperience?: number;
+  topSkills?: string[];
+  experienceSummary?: string;
+  experienceEntries?: ExperienceEntry[];
+  projectsListed?: ParsedResumeProject[];
 }
 
 export interface EngineeringSignals {
