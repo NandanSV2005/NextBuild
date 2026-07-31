@@ -108,8 +108,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#F2A93B]/20 border border-[#F2A93B]/50 text-[#F2A93B] font-display font-bold text-xl mb-1">
-            N
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[#10253F] border border-[#3D6FB4] p-2 mb-1 shadow-md">
+            <svg className="w-full h-full" viewBox="0 0 32 32" fill="none">
+              <path d="M16 5L5 11L16 17L27 11L16 5Z" fill="url(#modalGrad)" stroke="#F2A93B" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M5 16.5L16 22.5L27 16.5" stroke="#3D6FB4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 22L16 28L27 22" stroke="#F2A93B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <defs>
+                <linearGradient id="modalGrad" x1="5" y1="5" x2="27" y2="17" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#F2A93B"/>
+                  <stop offset="1" stopColor="#3D6FB4"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
           <h3 className="font-display font-bold text-2xl text-[#F2F0E6] tracking-tight">
             {activeTab === 'signin' ? 'Welcome back to NextBuild' : 'Create Your NextBuild Account'}

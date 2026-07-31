@@ -26,8 +26,18 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo / Wordmark */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => onNavigate('landing')}>
-          <div className="w-8 h-8 rounded border-2 border-[#3D6FB4] bg-[#10253F] flex items-center justify-center text-[#F2A93B] font-display font-bold text-lg">
-            N
+          <div className="w-9 h-9 rounded-lg bg-[#10253F] border border-[#3D6FB4] flex items-center justify-center p-1.5 shadow-sm hover:border-[#F2A93B] transition-colors">
+            <svg className="w-full h-full" viewBox="0 0 32 32" fill="none">
+              <path d="M16 5L5 11L16 17L27 11L16 5Z" fill="url(#navGrad)" stroke="#F2A93B" strokeWidth="1.5" strokeLinejoin="round"/>
+              <path d="M5 16.5L16 22.5L27 16.5" stroke="#3D6FB4" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M5 22L16 28L27 22" stroke="#F2A93B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <defs>
+                <linearGradient id="navGrad" x1="5" y1="5" x2="27" y2="17" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#F2A93B"/>
+                  <stop offset="1" stopColor="#3D6FB4"/>
+                </linearGradient>
+              </defs>
+            </svg>
           </div>
           <span className="font-display font-bold text-xl sm:text-2xl text-[#F2F0E6] tracking-tight">
             NextBuild
