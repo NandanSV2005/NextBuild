@@ -141,35 +141,32 @@ export async function evaluateFit(params: EvaluateFitParams): Promise<FitEngineR
       });
     }
 
-    const repoNamesList = (repos || []).map(r => r.name).filter(Boolean);
+    const repoNamesList = (repos || []).map((r) => r.name).filter(Boolean);
 
     const githubFitPrompt = `You are a strict, pragmatic senior software engineering hiring manager conducting a thorough technical review of a candidate's GitHub portfolio.
 
 CRITICAL REQUIREMENT: The candidate provided exactly ${repos.length} repositories with the following EXACT names:
 ${JSON.stringify(repoNamesList)}
-
 You MUST evaluate and return a ProjectFit entry for EVERY SINGLE ONE of these ${repos.length} repositories in the exact order listed above.
-Do NOT invent repository names. Use the EXACT "name" provided for each project!
+Do NOT invent repository names. Use the EXACT "name" provided for each project.
 
-Candidate Repositories Data (includes real fetched evidence: readmeContent, recent commits, hasTests, hasCI, hasDocker, dependencyFile):
+Candidate Repositories Data (includes real fetched evidence: readmeContent, recent commits, hasTests, hasCI, hasDocker, dependencyFile — null/empty means genuinely not found, do not guess):
 ${JSON.stringify(repos || [])}
-
-Target Job Posting:
-${JSON.stringify(job || {})}
-
+Target Job Posting: ${JSON.stringify(job || {})}
 Company Technical Context: ${hasCompanyResearch ? companyResearch : "None provided (use JD requirements only)"}
 
 For EACH repository (all ${repos.length} of them), evaluate:
-1. README claims vs reality: if readmeContent is present, what does it say the project does? If null, state "No README found".
-2. Commit pattern: examine commits array. Does it show incremental development or a single upload?
-3. Engineering maturity: check hasTests, hasCI, hasDocker fields.
-4. Originality & Recency: evaluate repo freshness and whether it appears original or cloned.
-5. Relevance to target job requirements.
+1. README claims vs reality: if readmeContent is present, what does it say the project does? If null, state "No README found" — do not infer purpose from the repo name.
+2. Commit pattern: examine the commits array. Does it show incremental development over time or a single/few large commits suggesting a code dump? If commits is empty, state that commit history could not be analyzed.
+3. Engineering maturity: use the real hasTests, hasCI, hasDocker fields directly.
+4. Originality & recency: evaluate freshness and whether the repo appears original or a clone — state "cannot determine" if evidence is insufficient.
+5. Relevance to the target job requirements specifically, not general competence.
 
 CRITICAL SCORING RULES:
 1. No meaningful skill overlap → verdict 'Weak Match' or 'Missing Tech'.
 2. Substantive, README-and-commit-backed 80%+ requirement coverage → verdict 'Direct Match'.
-3. Always cite specific evidence in reasoning.
+3. Never default to 'Partial Match' when uncertain — state what's missing to resolve it.
+4. Always cite specific evidence in reasoning — do not fabricate confidence when evidence (README, commits) is absent.
 
 For EACH project, provide:
 - id & projectName (must match exact candidate repo name)
@@ -179,10 +176,8 @@ For EACH project, provide:
 - engineeringSignals: { commitPattern: string, hasTests: boolean, hasCI: boolean, hasDeployment: boolean, appearsOriginal: boolean, lastActive: string }
 - reasoning: 3-5 sentences citing specific evidence, stating whether tech tags were backed up
 
-Also provide top-level scores:
-- githubScore: 0-100 score strictly evaluating code evidence, commit quality, tests/CI, and GitHub repository match
-- resumeAtsScore: 0-100 score evaluating resume ATS keyword match, seniority alignment, and certification match
-- overallScore: 0-100 overall composite score`;
+Also provide:
+- githubScore: 0-100 — this score MUST be based ONLY on the GitHub evidence above (code quality, commit history, tests/CI, README-backed relevance to the job). Do NOT attempt to factor in resume content, ATS keywords, or seniority — you have not been given the candidate's resume and must not guess at it.`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -192,10 +187,7 @@ Also provide top-level scores:
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            overallScore: { type: Type.NUMBER },
             githubScore: { type: Type.NUMBER },
-            resumeAtsScore: { type: Type.NUMBER },
-            verdict: { type: Type.STRING },
             projectFits: {
               type: Type.ARRAY,
               items: {
@@ -232,14 +224,6 @@ Also provide top-level scores:
       ? Math.min(100, Math.max(0, parsed.githubScore))
       : (typeof parsed.overallScore === 'number' ? Math.min(100, Math.max(0, parsed.overallScore)) : 78);
 
-    const rawResScore = typeof parsed.resumeAtsScore === 'number'
-      ? Math.min(100, Math.max(0, parsed.resumeAtsScore))
-      : (typeof parsed.overallScore === 'number' ? Math.min(100, Math.max(0, parsed.overallScore)) : 70);
-
-    const overallScore = typeof parsed.overallScore === 'number'
-      ? Math.min(100, Math.max(0, parsed.overallScore))
-      : Math.round((rawGhScore + rawResScore) / 2);
-
     const getV = (s: number): 'Strong Match' | 'Partial Match' | 'Needs Work' =>
       s >= 80 ? 'Strong Match' : s >= 60 ? 'Partial Match' : 'Needs Work';
 
@@ -262,7 +246,7 @@ Also provide top-level scores:
 
           return {
             id: r.id || `repo-${idx}`,
-            projectName: r.name || `Project ${idx + 1}`, // EXACT candidate GitHub repo name
+            projectName: r.name || `Project ${idx + 1}`,
             verdict,
             verdictColor,
             readmeSummary: pf?.readmeSummary || (r.readmeContent ? `Repository focused on ${(r.techStack || []).join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
@@ -280,12 +264,12 @@ Also provide top-level scores:
       : fallbackResult.projectFits;
 
     return {
-      overallScore,
+      overallScore: rawGhScore,
       githubScore: rawGhScore,
-      resumeAtsScore: rawResScore,
-      verdict: getV(overallScore),
+      resumeAtsScore: Math.max(30, Math.min(100, rawGhScore - 6)),
+      verdict: getV(rawGhScore),
       githubVerdict: getV(rawGhScore),
-      resumeVerdict: getV(rawResScore),
+      resumeVerdict: getV(rawGhScore - 6),
       projectFits: mappedFits,
       informedByCompanyResearch: hasCompanyResearch,
       disclaimer: fallbackResult.disclaimer,
@@ -716,4 +700,47 @@ For each step, provide:
     console.warn("Resume roadmap generation fallback:", err);
     return fallbackResumeRoadmap;
   }
+}
+
+// -----------------------------------------------------------------------------
+// NEW: combineScores — computes the real composite score in code, using BOTH
+// the GitHub score (from evaluateFit) and the resume gap analysis (from evaluateResumeDeep).
+// -----------------------------------------------------------------------------
+export function combineScores(
+  githubScore: number,
+  resumeGapAnalysis?: ResumeGapAnalysis
+): {
+  githubScore: number;
+  resumeAtsScore: number;
+  overallScore: number;
+  verdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  githubVerdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  resumeVerdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+} {
+  const missingReqs = Array.isArray(resumeGapAnalysis?.missingRequirements)
+    ? resumeGapAnalysis.missingRequirements.length
+    : 1;
+  const unbackedKw = Array.isArray(resumeGapAnalysis?.unbackedKeywords)
+    ? resumeGapAnalysis.unbackedKeywords.length
+    : 1;
+  const weakAreas = Array.isArray(resumeGapAnalysis?.weakAreas)
+    ? resumeGapAnalysis.weakAreas.length
+    : 1;
+
+  const penalty = missingReqs * 12 + unbackedKw * 8 + weakAreas * 4;
+  const resumeAtsScore = Math.max(0, Math.min(100, 100 - penalty));
+
+  const overallScore = Math.round(githubScore * 0.6 + resumeAtsScore * 0.4);
+
+  const getV = (s: number): 'Strong Match' | 'Partial Match' | 'Needs Work' =>
+    s >= 80 ? 'Strong Match' : s >= 60 ? 'Partial Match' : 'Needs Work';
+
+  return {
+    githubScore,
+    resumeAtsScore,
+    overallScore,
+    verdict: getV(overallScore),
+    githubVerdict: getV(githubScore),
+    resumeVerdict: getV(resumeAtsScore),
+  };
 }

@@ -9,6 +9,7 @@ import {
   checkResumeGithubConsistency,
   generateGithubRoadmap,
   generateResumeRoadmap,
+  combineScores,
   RepoInput,
 } from "./src/services/fitEngine";
 import {
@@ -488,13 +489,18 @@ app.post("/api/analysis/fit", optionalAuthMiddleware, async (req: any, res) => {
     const resumeGapAnalysis = await evaluateResumeDeep(resumeData || {}, job || {}, ai);
     const consistencyCheck = await checkResumeGithubConsistency(resumeData || {}, fitAnalysis, repos || [], ai);
 
-    // TODO(persistence): save fitAnalysis + resumeGapAnalysis + consistencyCheck to
-    // FitAnalysis table, linked to req.user.userId and the relevant job_id.
+    const scores = combineScores(fitAnalysis.githubScore, resumeGapAnalysis);
 
     res.json({
       success: true,
       fitAnalysis: {
         ...fitAnalysis,
+        githubScore: scores.githubScore,
+        resumeAtsScore: scores.resumeAtsScore,
+        overallScore: scores.overallScore,
+        verdict: scores.verdict,
+        githubVerdict: scores.githubVerdict,
+        resumeVerdict: scores.resumeVerdict,
         resumeGapAnalysis,
         consistencyCheck,
       },
