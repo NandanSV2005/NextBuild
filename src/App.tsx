@@ -385,6 +385,7 @@ export default function App() {
                   resumeVerdict={resumeVerdict}
                   projectFits={projectFits}
                   totalReposCount={repos.length}
+                  githubUser={connectedGithubUser}
                 />
 
                 <RoadmapSection

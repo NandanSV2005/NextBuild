@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ProjectFit } from '../types';
-import { CheckCircle2, AlertTriangle, XCircle, Info, Github, FileText } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, Github, FileText, ExternalLink } from 'lucide-react';
 
 interface FitAnalysisSectionProps {
   overallScore: number; // e.g. 74
@@ -11,6 +11,7 @@ interface FitAnalysisSectionProps {
   resumeVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
   projectFits: ProjectFit[];
   totalReposCount?: number;
+  githubUser?: string | null;
 }
 
 const SAMPLE_RESUME_FITS: ProjectFit[] = [
@@ -81,6 +82,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
   resumeVerdict = 'Partial Match',
   projectFits,
   totalReposCount,
+  githubUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'github' | 'resume'>('github');
 
@@ -293,11 +295,31 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
                   className="bg-[#10253F] border border-[#3D6FB4] hover:border-[#3D6FB4]/80 rounded-md p-4 space-y-3 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono-data font-semibold text-sm text-[#F2F0E6]">
-                      {fit.projectName}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      {activeTab === 'github' && <Github className="w-4 h-4 text-[#F2A93B] shrink-0" />}
+                      <div>
+                        <span className="font-mono-data text-[10px] text-[#7C93AC] uppercase font-bold block tracking-wider">
+                          {activeTab === 'github' ? 'GitHub Repository' : 'Resume Competency'}
+                        </span>
+                        {activeTab === 'github' && githubUser ? (
+                          <a
+                            href={`https://github.com/${githubUser}/${fit.projectName}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono-data font-bold text-sm text-[#F2F0E6] hover:text-[#F2A93B] hover:underline inline-flex items-center space-x-1"
+                          >
+                            <span>{fit.projectName}</span>
+                            <ExternalLink className="w-3.5 h-3.5 text-[#7C93AC]" />
+                          </a>
+                        ) : (
+                          <span className="font-mono-data font-bold text-sm text-[#F2F0E6]">
+                            {fit.projectName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <span
-                      className={`px-2.5 py-0.5 text-xs font-mono-data font-bold border rounded-full ${tagStyle}`}
+                      className={`px-2.5 py-0.5 text-xs font-mono-data font-bold border rounded-full shrink-0 ${tagStyle}`}
                     >
                       {fit.verdict}
                     </span>

@@ -230,8 +230,9 @@ Also provide:
     // Map 1-to-1 against candidate's actual input repositories using exact repo names
     const mappedFits: ProjectFit[] = (repos && repos.length > 0)
       ? repos.map((r, idx) => {
+          // Strictly match by candidate's actual repo name (do NOT fall back to arbitrary index items with wrong names)
           const pf = Array.isArray(parsed.projectFits)
-            ? (parsed.projectFits.find((p: any) => p.projectName?.toLowerCase() === r.name?.toLowerCase() || p.id === r.id) || parsed.projectFits[idx])
+            ? parsed.projectFits.find((p: any) => p.projectName?.toLowerCase() === r.name?.toLowerCase() || p.id === r.id || p.id === `repo-${idx}`)
             : null;
 
           const verdict: 'Direct Match' | 'Partial Match' | 'Weak Match' | 'Missing Tech' =
@@ -246,10 +247,10 @@ Also provide:
 
           return {
             id: r.id || `repo-${idx}`,
-            projectName: r.name || `Project ${idx + 1}`,
+            projectName: r.name, // ALWAYS force exact candidate GitHub repository name
             verdict,
             verdictColor,
-            readmeSummary: pf?.readmeSummary || (r.readmeContent ? `Repository focused on ${(r.techStack || []).join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
+            readmeSummary: pf?.readmeSummary || (r.readmeContent ? `Repository focusing on ${(r.techStack || []).join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
             engineeringSignals: pf?.engineeringSignals || {
               commitPattern: r.commits && r.commits.length > 0 ? 'Incremental commits' : 'Not determined',
               hasTests: typeof r.hasTests === 'boolean' ? r.hasTests : null,
@@ -258,7 +259,9 @@ Also provide:
               appearsOriginal: null,
               lastActive: r.updatedAt || 'Unknown',
             },
-            reasoning: pf?.reasoning || `Repository "${r.name}" evaluated against target job requirements for ${job.title || 'engineering role'}.`,
+            reasoning: pf?.reasoning && !pf.reasoning.includes('Apex Cloud') && !pf.reasoning.includes('ecommerce')
+              ? pf.reasoning
+              : `Repository "${r.name}" (${(r.techStack || []).join(', ') || 'Code'}) evaluated against target job requirements for ${job.title || 'software engineering role'}.`,
           };
         })
       : fallbackResult.projectFits;
