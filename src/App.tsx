@@ -64,6 +64,7 @@ function MainContent() {
   const [resumeVerdict, setResumeVerdict] = useState<'Strong Match' | 'Partial Match' | 'Needs Work'>('Partial Match');
   const [projectFits, setProjectFits] = useState<ProjectFit[]>(SAMPLE_PROJECT_FITS);
   const [recommendedProjects, setRecommendedProjects] = useState<RecommendedProject[]>(SAMPLE_RECOMMENDED_PROJECTS);
+  const [resumeRoadmap, setResumeRoadmap] = useState<any[]>([]);
   const [appPackage, setAppPackage] = useState<ApplicationPackage>(SAMPLE_APPLICATION_PACKAGE);
   const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestionItem[]>(SAMPLE_INTERVIEW_QUESTIONS);
 
@@ -259,9 +260,14 @@ function MainContent() {
 
         if (roadRes.ok) {
           const roadData = await roadRes.json();
-          if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
-            finalRoadmap = roadData.recommendedProjects;
-            setRecommendedProjects(finalRoadmap);
+          if (roadData.success) {
+            if (Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
+              finalRoadmap = roadData.recommendedProjects;
+              setRecommendedProjects(finalRoadmap);
+            }
+            if (Array.isArray(roadData.resumeRoadmap) && roadData.resumeRoadmap.length > 0) {
+              setResumeRoadmap(roadData.resumeRoadmap);
+            }
           }
         }
       } catch (e) {
@@ -489,6 +495,7 @@ function MainContent() {
 
                 <RoadmapSection
                   recommendedProjects={recommendedProjects}
+                  resumeRoadmap={resumeRoadmap}
                   overallScore={overallScore}
                 />
 

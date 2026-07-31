@@ -3,8 +3,17 @@ import { RecommendedProject } from '../types';
 import { ChevronDown, ChevronUp, Clock, ExternalLink, CheckCircle2, Award, Sparkles, BookOpen, Layers, Terminal, Copy, Check, Code2 } from 'lucide-react';
 import { SAMPLE_RECOMMENDED_PROJECTS } from '../data/sampleData';
 
+export interface ResumeRoadmapStep {
+  stepNumber: number;
+  topic: string;
+  problemIdentified: string;
+  actionPlan: string;
+  recommendedResourceTopic?: string;
+}
+
 interface RoadmapSectionProps {
   recommendedProjects: RecommendedProject[];
+  resumeRoadmap?: ResumeRoadmapStep[];
   overallScore?: number;
 }
 
@@ -108,6 +117,7 @@ const RELIABLE_LEARNING_RESOURCES: ReliableResource[] = [
 
 export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
   recommendedProjects,
+  resumeRoadmap = [],
   overallScore = 74,
 }) => {
   const [activeTab, setActiveTab] = useState<'build' | 'resume-mastery'>('build');
@@ -478,80 +488,131 @@ def health_check():
             <div className="space-y-6">
               <div className="p-4 bg-[#3D6FB4]/15 border border-[#3D6FB4] rounded-md text-xs font-body text-[#7C93AC] space-y-1">
                 <span className="font-semibold text-[#F2F0E6] block text-sm">
-                  Resume Skill Mastery Roadmap
+                  Personalized Resume & Skill Mastery Roadmap
                 </span>
                 <p>
-                  Follow this sequential learning roadmap to master essential technical competencies. Each step outlines estimated study time, key concepts to learn, and official documentation links.
+                  Dynamically generated for your target job posting. Each step addresses identified resume gaps, keywords to rephrase, and core engineering concepts to master.
                 </p>
               </div>
 
-              {/* Sequential Roadmap Cards */}
-              <div className="space-y-4">
-                {RELIABLE_LEARNING_RESOURCES.map((res) => (
-                  <div
-                    key={res.stepNumber}
-                    className="p-5 bg-[#10253F] border border-[#3D6FB4] hover:border-[#F2A93B]/70 rounded-lg space-y-4 transition-all"
-                  >
-                    {/* Header Row: Step Badge + Category + Duration */}
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#3D6FB4]/30 pb-3">
-                      <div className="flex items-center space-x-2.5">
-                        <span className="px-2.5 py-1 text-xs font-mono-data font-bold bg-[#F2A93B] text-[#10253F] rounded-md">
-                          STEP {res.stepNumber}
-                        </span>
-                        <span className="px-2 py-0.5 text-[11px] font-mono-data uppercase font-bold bg-[#3D6FB4]/30 text-[#F2A93B] border border-[#3D6FB4] rounded">
-                          {res.category}
-                        </span>
+              {/* Dynamic AI-Generated Resume Roadmap Steps */}
+              {Array.isArray(resumeRoadmap) && resumeRoadmap.length > 0 ? (
+                <div className="space-y-4">
+                  {resumeRoadmap.map((step, idx) => (
+                    <div
+                      key={`step-${idx}`}
+                      className="p-5 bg-[#10253F] border border-[#3D6FB4] hover:border-[#F2A93B]/70 rounded-lg space-y-4 transition-all"
+                    >
+                      {/* Header Row */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#3D6FB4]/30 pb-3">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="px-2.5 py-1 text-xs font-mono-data font-bold bg-[#F2A93B] text-[#10253F] rounded-md">
+                            STEP {step.stepNumber || idx + 1}
+                          </span>
+                          <span className="px-2 py-0.5 text-[11px] font-mono-data uppercase font-bold bg-[#3D6FB4]/30 text-[#F2A93B] border border-[#3D6FB4] rounded">
+                            {step.topic}
+                          </span>
+                        </div>
                       </div>
 
-                      <div className="font-body text-xs font-semibold text-[#7C93AC] flex items-center space-x-1.5 bg-[#3D6FB4]/10 px-2.5 py-1 rounded border border-[#3D6FB4]/30">
-                        <Clock className="w-3.5 h-3.5 text-[#F2A93B]" />
-                        <span>Estimated Study Time: <strong className="text-[#F2F0E6]">{res.estimatedTime}</strong></span>
+                      {/* Problem / Identified Gap */}
+                      <div className="space-y-1">
+                        <h4 className="font-display font-bold text-base text-[#F2F0E6]">
+                          Identified Gap / Requirement:
+                        </h4>
+                        <p className="font-body text-xs sm:text-sm text-[#7C93AC] leading-relaxed">
+                          {step.problemIdentified}
+                        </p>
+                      </div>
+
+                      {/* Action Plan */}
+                      <div className="p-4 bg-[#3D6FB4]/10 border border-[#3D6FB4]/40 rounded-md space-y-2">
+                        <span className="font-mono-data text-xs uppercase font-bold text-[#4FA87B] tracking-wider block flex items-center space-x-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-[#4FA87B]" />
+                          <span>Actionable Resume Fix & Mastery Strategy:</span>
+                        </span>
+                        <p className="text-xs font-body text-[#F2F0E6] leading-relaxed">
+                          {step.actionPlan}
+                        </p>
+                      </div>
+
+                      {/* Technology Topic */}
+                      {step.recommendedResourceTopic && (
+                        <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#3D6FB4]/30 text-xs font-body text-[#7C93AC]">
+                          <span>Target Concept to Master:</span>
+                          <span className="font-mono-data font-semibold text-[#F2A93B]">
+                            {step.recommendedResourceTopic}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                /* Fallback Learning Resources */
+                <div className="space-y-4">
+                  {RELIABLE_LEARNING_RESOURCES.map((res) => (
+                    <div
+                      key={res.stepNumber}
+                      className="p-5 bg-[#10253F] border border-[#3D6FB4] hover:border-[#F2A93B]/70 rounded-lg space-y-4 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-[#3D6FB4]/30 pb-3">
+                        <div className="flex items-center space-x-2.5">
+                          <span className="px-2.5 py-1 text-xs font-mono-data font-bold bg-[#F2A93B] text-[#10253F] rounded-md">
+                            STEP {res.stepNumber}
+                          </span>
+                          <span className="px-2 py-0.5 text-[11px] font-mono-data uppercase font-bold bg-[#3D6FB4]/30 text-[#F2A93B] border border-[#3D6FB4] rounded">
+                            {res.category}
+                          </span>
+                        </div>
+
+                        <div className="font-body text-xs font-semibold text-[#7C93AC] flex items-center space-x-1.5 bg-[#3D6FB4]/10 px-2.5 py-1 rounded border border-[#3D6FB4]/30">
+                          <Clock className="w-3.5 h-3.5 text-[#F2A93B]" />
+                          <span>Estimated Study Time: <strong className="text-[#F2F0E6]">{res.estimatedTime}</strong></span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <h4 className="font-display font-bold text-lg text-[#F2F0E6]">
+                          {res.skill}
+                        </h4>
+                        <p className="font-body text-xs sm:text-sm text-[#7C93AC] leading-relaxed">
+                          {res.description}
+                        </p>
+                      </div>
+
+                      <div className="p-4 bg-[#3D6FB4]/10 border border-[#3D6FB4]/40 rounded-md space-y-2">
+                        <span className="font-mono-data text-xs uppercase font-bold text-[#F2A93B] tracking-wider block">
+                          What You Need To Learn & Master:
+                        </span>
+                        <ul className="space-y-1.5">
+                          {res.whatToLearn.map((topic, i) => (
+                            <li key={i} className="flex items-start space-x-2 text-xs font-body text-[#F2F0E6]">
+                              <CheckCircle2 className="w-4 h-4 text-[#4FA87B] shrink-0 mt-0.5" />
+                              <span>{topic}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#3D6FB4]/30">
+                        <span className="font-body text-xs text-[#7C93AC]">
+                          Official Learning Source:
+                        </span>
+                        <a
+                          href={res.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-1.5 font-mono-data text-xs text-[#F2A93B] hover:underline font-semibold"
+                        >
+                          <span>{res.linkText}</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                       </div>
                     </div>
-
-                    {/* Skill Title & High-level Goal */}
-                    <div className="space-y-1">
-                      <h4 className="font-display font-bold text-lg text-[#F2F0E6]">
-                        {res.skill}
-                      </h4>
-                      <p className="font-body text-xs sm:text-sm text-[#7C93AC] leading-relaxed">
-                        {res.description}
-                      </p>
-                    </div>
-
-                    {/* What You Need to Learn (Core Mastery Bullet Points) */}
-                    <div className="p-4 bg-[#3D6FB4]/10 border border-[#3D6FB4]/40 rounded-md space-y-2">
-                      <span className="font-mono-data text-xs uppercase font-bold text-[#F2A93B] tracking-wider block">
-                        What You Need To Learn & Master:
-                      </span>
-                      <ul className="space-y-1.5">
-                        {res.whatToLearn.map((topic, i) => (
-                          <li key={i} className="flex items-start space-x-2 text-xs font-body text-[#F2F0E6]">
-                            <CheckCircle2 className="w-4 h-4 text-[#4FA87B] shrink-0 mt-0.5" />
-                            <span>{topic}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    {/* Recommended Learning Resource Link */}
-                    <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-t border-[#3D6FB4]/30">
-                      <span className="font-body text-xs text-[#7C93AC]">
-                        Official Learning Source:
-                      </span>
-                      <a
-                        href={res.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-1.5 font-mono-data text-xs text-[#F2A93B] hover:underline font-semibold"
-                      >
-                        <span>{res.linkText}</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
