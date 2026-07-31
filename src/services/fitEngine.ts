@@ -748,86 +748,56 @@ export function combineScores(
   };
 }
 
-export interface InterviewQuestionItem {
-  id: string;
+export interface InterviewQuestion {
+  repoName: string; // which real repo this question is grounded in
   question: string;
-  targetCategory: 'System Architecture' | 'Concurrency & Async' | 'Database Schema' | 'API Design' | 'Testing & CI/CD';
-  recruiterRationale: string;
-  starAnswer: {
+  conceptTested: string; // the underlying CS/engineering concept, e.g. "async I/O vs blocking calls"
+  whyRecruitersAskThis: string;
+  modelStarAnswer: {
     situation: string;
     task: string;
-    action: string;
+    action: string[]; // bulleted, specific to what's evidenced in the repo
     result: string;
   };
+  evidenceBasis: string; // NEW: explicitly states what evidence grounds this question
 }
 
-export async function generateInterviewPrep(
-  job: JobInput,
+// Backwards compatibility alias
+export type InterviewQuestionItem = InterviewQuestion;
+
+export async function generateInterviewQuestions(
   repos: RepoInput[],
+  job: JobInput,
   aiClient?: any
-): Promise<InterviewQuestionItem[]> {
-  const fallbackQuestions: InterviewQuestionItem[] = [
-    {
-      id: 'q-1',
-      question: `In your top GitHub repository, how did you structure asynchronous request handling and database migrations?`,
-      targetCategory: 'System Architecture',
-      recruiterRationale: `Interviewers at ${job.company || 'target company'} assess whether you understand production API throughput and database consistency.`,
-      starAnswer: {
-        situation: `Building microservices targeting high-throughput request handling for ${job.title || 'engineering role'}.`,
-        task: `Ensure zero-downtime database updates and non-blocking I/O during peak telemetry spikes.`,
-        action: `Implemented FastAPI async route handlers, connection pooling with asyncpg, and Alembic migration scripts.`,
-        result: `Achieved sub-50ms API response latency and 99.9% uptime during telemetry stress tests.`,
-      },
+): Promise<InterviewQuestion[]> {
+  const fallback: InterviewQuestion[] = [{
+    repoName: repos[0]?.name || "NextBuild",
+    question: "In your top GitHub repository, how did you structure asynchronous request handling and database migrations?",
+    conceptTested: "System Architecture & API Throughput",
+    whyRecruitersAskThis: `Interviewers at ${job?.company || 'target company'} assess whether you understand production API throughput and database consistency.`,
+    modelStarAnswer: {
+      situation: `Building microservices targeting high-throughput request handling for ${job?.title || 'engineering role'}.`,
+      task: `Ensure zero-downtime database updates and non-blocking I/O during peak telemetry spikes.`,
+      action: [
+        'Implemented FastAPI async route handlers with Pydantic validation schemas.',
+        'Configured connection pooling with asyncpg and Alembic migration scripts.',
+        'Benchmarked API throughput under simulated concurrent user load.',
+      ],
+      result: `Achieved sub-50ms API response latency and 99.9% uptime during stress tests.`,
     },
-    {
-      id: 'q-2',
-      question: `How do you handle API rate limiting, background queues, and failure retries when calling third-party services?`,
-      targetCategory: 'Concurrency & Async',
-      recruiterRationale: `Tests your understanding of distributed systems resilience and queue workers.`,
-      starAnswer: {
-        situation: `Handling fluctuating external API rate limits and network timeouts.`,
-        task: `Prevent cascading failures and user-facing 500 server errors.`,
-        action: `Integrated Redis message queues (RQ/Celery) with exponential backoff retries and circuit breaker patterns.`,
-        result: `Eliminated API dropouts and successfully handled 10,000+ queued background jobs without data loss.`,
-      },
-    },
-    {
-      id: 'q-3',
-      question: `Walk me through your unit testing strategy and CI/CD workflow for your repositories.`,
-      targetCategory: 'Testing & CI/CD',
-      recruiterRationale: `Assesses production readiness and automated quality assurance habits.`,
-      starAnswer: {
-        situation: `Maintaining code quality across multi-contributor commits.`,
-        task: `Catch regressions automatically before merging to main branch.`,
-        action: `Configured GitHub Actions CI workflows running PyTest/Vitest, pre-commit linting, and Docker container builds.`,
-        result: `Maintained 85%+ code coverage and zero broken deployment regressions across 50+ commit iterations.`,
-      },
-    },
-    {
-      id: 'q-4',
-      question: `How do you design RESTful API schemas and handle authentication tokens securely?`,
-      targetCategory: 'API Design',
-      recruiterRationale: `Evaluates API security fundamentals (JWT, CORS, authorization middleware).`,
-      starAnswer: {
-        situation: `Securing user profile data and API endpoints against unauthorized access.`,
-        task: `Implement stateless token authentication with token revocation capabilities.`,
-        action: `Used short-lived JWT access tokens alongside HTTP-only refresh tokens and role-based access middleware.`,
-        result: `Protected all internal API routes against unauthorized access and CSRF vulnerabilities.`,
-      },
-    },
-    {
-      id: 'q-5',
-      question: `How would you optimize database queries when dealing with relational joins and index performance?`,
-      targetCategory: 'Database Schema',
-      recruiterRationale: `Tests database schema normalization and SQL optimization skills.`,
-      starAnswer: {
-        situation: `Scaling relational query speeds as dataset size grows.`,
-        task: `Reduce slow query execution times on complex joins.`,
-        action: `Analyzed EXPLAIN ANALYZE execution plans, added composite B-Tree indexes, and avoided N+1 query patterns.`,
-        result: `Reduced database query execution times by 70% under simulated load.`,
-      },
-    },
-  ];
+    evidenceBasis: "Grounded in FastAPI dependency file and async route structure in repository.",
+  }];
+
+  if (!repos || repos.length === 0) {
+    return [{
+      repoName: "N/A",
+      question: "No repositories available to generate interview questions from.",
+      conceptTested: "N/A",
+      whyRecruitersAskThis: "Connect a GitHub profile with public repositories to generate personalized interview prep.",
+      modelStarAnswer: { situation: "", task: "", action: [], result: "" },
+      evidenceBasis: "No repository data provided.",
+    }];
+  }
 
   try {
     let ai = aiClient;
@@ -839,16 +809,38 @@ export async function generateInterviewPrep(
       });
     }
 
-    const interviewPrompt = `Generate exactly 5 highly specific technical interview questions and model STAR answers for a candidate applying to "${job.title || 'Software Engineer'}" at "${job.company || 'Target Company'}".
+    const repoNamesList = repos.map((r) => r.name);
 
-Candidate Repositories: ${JSON.stringify(repos || [])}
+    const interviewPrepPrompt = `You are a senior engineering interviewer preparing a candidate for a technical screen. Generate exactly 5 technical interview questions grounded in the candidate's REAL repository evidence, cross-referenced against the target job.
+
+CRITICAL GROUNDING RULE: You have access to README content, tech stack, dependency files, and presence/absence of tests/CI/Docker for each repo — you do NOT have the actual source code. Every question must be answerable using ONLY this evidence:
+- Base questions on the tech stack, architecture choices visible in the README, and structural signals (tests present or absent, CI present or absent, Docker present or absent, what dependency file exists).
+- Do NOT invent specific implementation details the evidence doesn't support (e.g., do not ask "how did you handle X specific edge case" unless the README or dependencies actually indicate that concern exists in the project).
+- It is acceptable and often stronger to ask conceptual/design questions tied to the real tech stack (e.g., "your project uses FastAPI and Redis — how would you explain your caching strategy and its tradeoffs?") rather than fabricated specifics.
+- If a repo has very little evidence (no README, no notable dependencies), it's fine to generate a more general question about the language/tech stack alone rather than pretending to know architectural details.
+- Use the EXACT repository name from this list for the repoName field, do not invent or alter names: ${JSON.stringify(repoNamesList)}
+
+Candidate Repositories (real evidence — readmeContent, commits, hasTests, hasCI, hasDocker, dependencyFile, techStack): ${JSON.stringify(repos)}
 Target Job: ${JSON.stringify(job || {})}
 
-Return a JSON array matching the schema with 5 items.`;
+Prioritize questions in this order of value to the candidate:
+1. Questions on the repo(s) most relevant to the JD's required skills/domain.
+2. Questions that combine a real project's evidenced tech stack with a concept the JD specifically cares about (e.g., if the JD mentions "scalability" and a repo shows a database dependency, ask about scaling that data layer).
+3. If a repo shows tests/CI absent on an otherwise relevant project, one question can reasonably probe how the candidate would think about testing/CI for that kind of system — framed as "how would you approach X", not "why didn't you do X" (stay constructive, not accusatory).
+
+For EACH of the 5 questions, provide:
+- repoName: the exact repo this question is grounded in
+- question: the interview question itself, written the way a real interviewer would ask it
+- conceptTested: the underlying engineering concept being probed (e.g., "async I/O vs blocking calls", "caching invalidation strategy", "test coverage philosophy")
+- whyRecruitersAskThis: 2-3 sentences explaining the engineering concept and why it signals seniority/competence to an interviewer
+- modelStarAnswer: a structured example answer using the STAR format (Situation, Task, Action, Result), where Action is a bulleted array of 3-5 specific, plausible steps grounded in what the repo evidence actually shows (tech stack, structure) — written as a model answer a student could adapt, not a fabricated claim about what they definitely did
+- evidenceBasis: 1 sentence stating exactly what evidence (a specific README detail, a dependency, a tests/CI flag) this question was grounded in — this keeps the reasoning auditable rather than opaque
+
+Return exactly 5 questions, spread across the candidate's most relevant repos (reuse a strong repo more than once only if the candidate has fewer than 3 relevant repos total).`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
-      contents: interviewPrompt,
+      contents: interviewPrepPrompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -859,19 +851,20 @@ Return a JSON array matching the schema with 5 items.`;
               items: {
                 type: Type.OBJECT,
                 properties: {
-                  id: { type: Type.STRING },
+                  repoName: { type: Type.STRING },
                   question: { type: Type.STRING },
-                  targetCategory: { type: Type.STRING },
-                  recruiterRationale: { type: Type.STRING },
-                  starAnswer: {
+                  conceptTested: { type: Type.STRING },
+                  whyRecruitersAskThis: { type: Type.STRING },
+                  modelStarAnswer: {
                     type: Type.OBJECT,
                     properties: {
                       situation: { type: Type.STRING },
                       task: { type: Type.STRING },
-                      action: { type: Type.STRING },
+                      action: { type: Type.ARRAY, items: { type: Type.STRING } },
                       result: { type: Type.STRING },
                     },
                   },
+                  evidenceBasis: { type: Type.STRING },
                 },
               },
             },
@@ -884,9 +877,14 @@ Return a JSON array matching the schema with 5 items.`;
     if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
       return parsed.questions;
     }
-    return fallbackQuestions;
+    return fallback;
   } catch (err) {
-    console.warn("Interview prep generation fallback:", err);
-    return fallbackQuestions;
+    console.warn("Interview question generation fallback:", err);
+    return fallback;
   }
 }
+
+// Backwards compatibility alias
+export const generateInterviewPrep = (job: JobInput, repos: RepoInput[], aiClient?: any) =>
+  generateInterviewQuestions(repos, job, aiClient);
+

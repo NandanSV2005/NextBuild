@@ -261,7 +261,7 @@ function MainContent() {
       setAnalysisStatusText('Generating 5 target job technical interview questions & STAR answers...');
       let finalQuestions = interviewQuestions;
       try {
-        const qRes = await fetchWithTimeout('/api/analysis/interview-prep', {
+        const qRes = await fetchWithTimeout('/api/interview/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job: targetJob, repos: currentRepos }),

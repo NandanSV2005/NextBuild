@@ -163,65 +163,90 @@ export const SAMPLE_APPLICATION_PACKAGE: ApplicationPackage = {
   whyThisRoleBlurb: `I am thrilled to apply for the Full-Stack Software Engineer role at Apex Cloud Solutions. Having built distributed microservices and real-time analytics interfaces, I admire Apex Cloud's commitment to low-latency infrastructure monitoring. My recent project — an async log ingestion queue paired with automated metric anomaly detection — directly mirrors Apex Cloud's technical roadmap.`
 };
 
-export const SAMPLE_INTERVIEW_QUESTIONS = [
+export const SAMPLE_INTERVIEW_QUESTIONS: InterviewQuestion[] = [
   {
-    id: 'q-sample-1',
-    question: 'In your ecommerce-microservices-api repository, how did you structure asynchronous request handling and database migrations?',
-    targetCategory: 'System Architecture',
-    recruiterRationale: 'Interviewers at Apex Cloud Solutions assess whether you understand production API throughput and database consistency.',
-    starAnswer: {
+    repoName: 'NextBuild',
+    question: 'In your NextBuild repository, how did you structure asynchronous request handling and database migrations?',
+    conceptTested: 'System Architecture & Async Throughput',
+    whyRecruitersAskThis: 'Interviewers at Apex Cloud Solutions assess whether you understand production API throughput and database consistency.',
+    modelStarAnswer: {
       situation: 'Building microservices targeting high-throughput request handling for Full-Stack Software Engineer roles.',
       task: 'Ensure zero-downtime database updates and non-blocking I/O during peak telemetry spikes.',
-      action: 'Implemented FastAPI async route handlers, connection pooling with asyncpg, and Alembic migration scripts.',
+      action: [
+        'Implemented FastAPI async route handlers with Pydantic validation schemas.',
+        'Configured connection pooling with asyncpg and Alembic migration scripts.',
+        'Benchmarked API throughput under simulated concurrent user load.',
+      ],
       result: 'Achieved sub-50ms API response latency and 99.9% uptime during telemetry stress tests.',
     },
+    evidenceBasis: 'Grounded in FastAPI dependency file and async route structure in repository.',
   },
   {
-    id: 'q-sample-2',
+    repoName: 'NextBuild',
     question: 'How do you handle API rate limiting, background queues, and failure retries when calling third-party services?',
-    targetCategory: 'Concurrency & Async',
-    recruiterRationale: 'Tests your understanding of distributed systems resilience and queue workers.',
-    starAnswer: {
+    conceptTested: 'Concurrency & Distributed Queues',
+    whyRecruitersAskThis: 'Tests your understanding of distributed systems resilience and background queue workers.',
+    modelStarAnswer: {
       situation: 'Handling fluctuating external API rate limits and network timeouts.',
       task: 'Prevent cascading failures and user-facing 500 server errors.',
-      action: 'Integrated Redis message queues (RQ/Celery) with exponential backoff retries and circuit breaker patterns.',
+      action: [
+        'Integrated Redis message queues (RQ/Celery) with exponential backoff retries.',
+        'Implemented circuit breaker pattern for external API calls.',
+        'Monitored queue latency and worker pool health.',
+      ],
       result: 'Eliminated API dropouts and successfully handled 10,000+ queued background jobs without data loss.',
     },
+    evidenceBasis: 'Grounded in Redis dependency and background queue worker tasks.',
   },
   {
-    id: 'q-sample-3',
+    repoName: 'NextBuild',
     question: 'Walk me through your unit testing strategy and CI/CD workflow for your repositories.',
-    targetCategory: 'Testing & CI/CD',
-    recruiterRationale: 'Assesses production readiness and automated quality assurance habits.',
-    starAnswer: {
+    conceptTested: 'Testing & CI/CD Automation',
+    whyRecruitersAskThis: 'Assesses production readiness and automated quality assurance habits.',
+    modelStarAnswer: {
       situation: 'Maintaining code quality across multi-contributor commits.',
       task: 'Catch regressions automatically before merging to main branch.',
-      action: 'Configured GitHub Actions CI workflows running PyTest/Vitest, pre-commit linting, and Docker container builds.',
+      action: [
+        'Configured GitHub Actions CI workflows running Vitest and PyTest test suites.',
+        'Enforced pre-commit linting and Docker container build verification.',
+        'Automated pull request checks and coverage reports.',
+      ],
       result: 'Maintained 85%+ code coverage and zero broken deployment regressions across 50+ commit iterations.',
     },
+    evidenceBasis: 'Grounded in GitHub Actions workflow files and test configuration in repository.',
   },
   {
-    id: 'q-sample-4',
+    repoName: 'NextBuild',
     question: 'How do you design RESTful API schemas and handle authentication tokens securely?',
-    targetCategory: 'API Design',
-    recruiterRationale: 'Evaluates API security fundamentals (JWT, CORS, authorization middleware).',
-    starAnswer: {
+    conceptTested: 'API Design & Security',
+    whyRecruitersAskThis: 'Evaluates API security fundamentals (JWT, CORS, authorization middleware).',
+    modelStarAnswer: {
       situation: 'Securing user profile data and API endpoints against unauthorized access.',
       task: 'Implement stateless token authentication with token revocation capabilities.',
-      action: 'Used short-lived JWT access tokens alongside HTTP-only refresh tokens and role-based access middleware.',
+      action: [
+        'Used short-lived JWT access tokens alongside HTTP-only refresh tokens.',
+        'Built role-based access control middleware for route authorization.',
+        'Configured strict CORS headers and input sanitization.',
+      ],
       result: 'Protected all internal API routes against unauthorized access and CSRF vulnerabilities.',
     },
+    evidenceBasis: 'Grounded in Express/JWT authentication middleware and token routes.',
   },
   {
-    id: 'q-sample-5',
+    repoName: 'NextBuild',
     question: 'How would you optimize database queries when dealing with relational joins and index performance?',
-    targetCategory: 'Database Schema',
-    recruiterRationale: 'Tests database schema normalization and SQL optimization skills.',
-    starAnswer: {
+    conceptTested: 'Database Schema & Query Optimization',
+    whyRecruitersAskThis: 'Tests database schema normalization and SQL optimization skills.',
+    modelStarAnswer: {
       situation: 'Scaling relational query speeds as dataset size grows.',
       task: 'Reduce slow query execution times on complex joins.',
-      action: 'Analyzed EXPLAIN ANALYZE execution plans, added composite B-Tree indexes, and avoided N+1 query patterns.',
+      action: [
+        'Analyzed EXPLAIN ANALYZE execution plans for slow queries.',
+        'Added composite B-Tree indexes on heavily queried foreign keys.',
+        'Eliminated N+1 query patterns using eager loading.',
+      ],
       result: 'Reduced database query execution times by 70% under simulated load.',
     },
+    evidenceBasis: 'Grounded in PostgreSQL schema and migration scripts.',
   },
 ];
