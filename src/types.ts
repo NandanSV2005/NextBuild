@@ -80,6 +80,17 @@ export interface ConsistencyCheck {
   overallConsistencyNote: string;
 }
 
+export interface FitEngineResult {
+  overallScore: number;
+  githubScore: number;
+  resumeAtsScore: number;
+  verdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  githubVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  resumeVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  projectFits: ProjectFit[];
+  disclaimer?: string;
+}
+
 export interface ResumeSkillRoadmapItem {
   stepNumber: number;
   topic: string;

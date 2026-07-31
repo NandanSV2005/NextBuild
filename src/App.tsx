@@ -33,7 +33,11 @@ export default function App() {
 
   // Dynamic Fit Analysis State
   const [overallScore, setOverallScore] = useState<number>(74);
+  const [githubScore, setGithubScore] = useState<number>(78);
+  const [resumeAtsScore, setResumeAtsScore] = useState<number>(70);
   const [verdict, setVerdict] = useState<'Strong Match' | 'Partial Match' | 'Needs Work'>('Partial Match');
+  const [githubVerdict, setGithubVerdict] = useState<'Strong Match' | 'Partial Match' | 'Needs Work'>('Partial Match');
+  const [resumeVerdict, setResumeVerdict] = useState<'Strong Match' | 'Partial Match' | 'Needs Work'>('Partial Match');
   const [projectFits, setProjectFits] = useState<ProjectFit[]>(SAMPLE_PROJECT_FITS);
   const [recommendedProjects, setRecommendedProjects] = useState<RecommendedProject[]>(SAMPLE_RECOMMENDED_PROJECTS);
   const [appPackage, setAppPackage] = useState<ApplicationPackage>(SAMPLE_APPLICATION_PACKAGE);
@@ -157,8 +161,12 @@ export default function App() {
           const fitData = await fitRes.json();
           if (fitData.success && fitData.fitAnalysis) {
             currentFitAnalysis = fitData.fitAnalysis;
-            setOverallScore(fitData.fitAnalysis.overallScore || 75);
+            setOverallScore(fitData.fitAnalysis.overallScore || 74);
+            setGithubScore(fitData.fitAnalysis.githubScore || 78);
+            setResumeAtsScore(fitData.fitAnalysis.resumeAtsScore || 70);
             setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
+            setGithubVerdict(fitData.fitAnalysis.githubVerdict || 'Partial Match');
+            setResumeVerdict(fitData.fitAnalysis.resumeVerdict || 'Partial Match');
             if (Array.isArray(fitData.fitAnalysis.projectFits) && fitData.fitAnalysis.projectFits.length > 0) {
               setProjectFits(fitData.fitAnalysis.projectFits);
             }
@@ -370,7 +378,11 @@ export default function App() {
                 {/* Results Content */}
                 <FitAnalysisSection
                   overallScore={overallScore}
+                  githubScore={githubScore}
+                  resumeAtsScore={resumeAtsScore}
                   verdict={verdict}
+                  githubVerdict={githubVerdict}
+                  resumeVerdict={resumeVerdict}
                   projectFits={projectFits}
                   totalReposCount={repos.length}
                 />

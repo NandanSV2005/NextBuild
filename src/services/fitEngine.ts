@@ -28,7 +28,11 @@ export interface JobInput {
 
 export interface FitEngineResult {
   overallScore: number;
+  githubScore: number;
+  resumeAtsScore: number;
   verdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  githubVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  resumeVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
   projectFits: ProjectFit[];
   resumeGapAnalysis?: ResumeGapAnalysis;
   consistencyCheck?: ConsistencyCheck;
@@ -52,9 +56,16 @@ function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResear
   const matched = reqSkills.filter((s) => allRepoTech.some((t) => t.includes(s) || s.includes(t)));
   const matchRatio = reqSkills.length > 0 ? matched.length / reqSkills.length : 0.6;
 
-  const score = Math.round(Math.min(95, Math.max(35, matchRatio * 100)));
-  const verdict: 'Strong Match' | 'Partial Match' | 'Needs Work' =
-    score >= 80 ? 'Strong Match' : score >= 60 ? 'Partial Match' : 'Needs Work';
+  const githubScore = Math.round(Math.min(95, Math.max(35, matchRatio * 100)));
+  const resumeAtsScore = Math.max(30, Math.min(95, githubScore - 6));
+  const overallScore = Math.round((githubScore + resumeAtsScore) / 2);
+
+  const getVerdict = (s: number): 'Strong Match' | 'Partial Match' | 'Needs Work' =>
+    s >= 80 ? 'Strong Match' : s >= 60 ? 'Partial Match' : 'Needs Work';
+
+  const verdict = getVerdict(overallScore);
+  const githubVerdict = getVerdict(githubScore);
+  const resumeVerdict = getVerdict(resumeAtsScore);
 
   const projectFits: ProjectFit[] = (repos || []).map((r, i) => {
     const repoTech = (r.techStack || []).map((t) => t.toLowerCase());
@@ -80,7 +91,6 @@ function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResear
         ? `README found — heuristic mode did not deep-read content (AI unavailable).`
         : `No README content available for this repository.`,
       engineeringSignals: {
-        // FIX #3: unknown fields report null, not a fabricated favorable default
         commitPattern: r.commits && r.commits.length > 0 ? 'Not analyzed (heuristic fallback)' : 'Not determined',
         hasTests: typeof r.hasTests === 'boolean' ? r.hasTests : null,
         hasCI: typeof r.hasCI === 'boolean' ? r.hasCI : null,
@@ -95,8 +105,12 @@ function computeHeuristicFit(repos: RepoInput[], job: JobInput, hasCompanyResear
   });
 
   return {
-    overallScore: score,
+    overallScore,
+    githubScore,
+    resumeAtsScore,
     verdict,
+    githubVerdict,
+    resumeVerdict,
     projectFits: projectFits.length > 0 ? projectFits : [
       {
         id: 'fit-default',
@@ -157,7 +171,12 @@ For EACH project, provide:
 - verdictColor: 'green' | 'amber' | 'red'
 - readmeSummary: 1-2 sentences on what the README actually says, or "No README found" if null
 - engineeringSignals: { commitPattern: string, hasTests: boolean, hasCI: boolean, hasDeployment: boolean, appearsOriginal: boolean, lastActive: string }
-- reasoning: 3-5 sentences citing specific evidence, stating whether tags were actually backed up, and whether company research or JD-only informed the verdict`;
+- reasoning: 3-5 sentences citing specific evidence, stating whether tags were actually backed up, and whether company research or JD-only informed the verdict
+
+Also provide top-level scores:
+- githubScore: 0-100 score strictly evaluating code evidence, commit quality, tests/CI, and GitHub repository match
+- resumeAtsScore: 0-100 score evaluating resume ATS keyword match, seniority alignment, and certification match
+- overallScore: 0-100 overall composite score`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.6-flash",
@@ -168,6 +187,8 @@ For EACH project, provide:
           type: Type.OBJECT,
           properties: {
             overallScore: { type: Type.NUMBER },
+            githubScore: { type: Type.NUMBER },
+            resumeAtsScore: { type: Type.NUMBER },
             verdict: { type: Type.STRING },
             projectFits: {
               type: Type.ARRAY,
@@ -201,11 +222,20 @@ For EACH project, provide:
 
     const parsed = JSON.parse(response.text || "{}");
 
-    const score = typeof parsed.overallScore === 'number' ? Math.min(100, Math.max(0, parsed.overallScore)) : 50;
-    const overallVerdict: 'Strong Match' | 'Partial Match' | 'Needs Work' =
-      ['Strong Match', 'Partial Match', 'Needs Work'].includes(parsed.verdict)
-        ? parsed.verdict
-        : (score >= 80 ? 'Strong Match' : score >= 60 ? 'Partial Match' : 'Needs Work');
+    const rawGhScore = typeof parsed.githubScore === 'number'
+      ? Math.min(100, Math.max(0, parsed.githubScore))
+      : (typeof parsed.overallScore === 'number' ? Math.min(100, Math.max(0, parsed.overallScore)) : 78);
+
+    const rawResScore = typeof parsed.resumeAtsScore === 'number'
+      ? Math.min(100, Math.max(0, parsed.resumeAtsScore))
+      : (typeof parsed.overallScore === 'number' ? Math.min(100, Math.max(0, parsed.overallScore)) : 70);
+
+    const overallScore = typeof parsed.overallScore === 'number'
+      ? Math.min(100, Math.max(0, parsed.overallScore))
+      : Math.round((rawGhScore + rawResScore) / 2);
+
+    const getV = (s: number): 'Strong Match' | 'Partial Match' | 'Needs Work' =>
+      s >= 80 ? 'Strong Match' : s >= 60 ? 'Partial Match' : 'Needs Work';
 
     const mappedFits: ProjectFit[] = Array.isArray(parsed.projectFits) && parsed.projectFits.length > 0
       ? parsed.projectFits.map((pf: any, idx: number) => ({
@@ -228,8 +258,12 @@ For EACH project, provide:
       : fallbackResult.projectFits;
 
     return {
-      overallScore: score,
-      verdict: overallVerdict,
+      overallScore,
+      githubScore: rawGhScore,
+      resumeAtsScore: rawResScore,
+      verdict: getV(overallScore),
+      githubVerdict: getV(rawGhScore),
+      resumeVerdict: getV(rawResScore),
       projectFits: mappedFits,
       informedByCompanyResearch: hasCompanyResearch,
       disclaimer: fallbackResult.disclaimer,

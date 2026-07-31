@@ -4,7 +4,11 @@ import { CheckCircle2, AlertTriangle, XCircle, Info, Github, FileText } from 'lu
 
 interface FitAnalysisSectionProps {
   overallScore: number; // e.g. 74
+  githubScore?: number; // e.g. 78
+  resumeAtsScore?: number; // e.g. 70
   verdict: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  githubVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
+  resumeVerdict?: 'Strong Match' | 'Partial Match' | 'Needs Work';
   projectFits: ProjectFit[];
   totalReposCount?: number;
 }
@@ -70,24 +74,33 @@ const SAMPLE_RESUME_FITS: ProjectFit[] = [
 
 export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
   overallScore,
+  githubScore = 78,
+  resumeAtsScore = 70,
   verdict,
+  githubVerdict = 'Partial Match',
+  resumeVerdict = 'Partial Match',
   projectFits,
   totalReposCount,
 }) => {
   const [activeTab, setActiveTab] = useState<'github' | 'resume'>('github');
 
-  // Determine verdict badge styling
-  let badgeBg = 'bg-[#F2A93B] text-[#10253F]';
+  const getVerdictStyle = (v: string) => {
+    if (v === 'Strong Match') return 'bg-[#4FA87B] text-[#10253F]';
+    if (v === 'Needs Work') return 'bg-[#C4634F] text-[#F2F0E6]';
+    return 'bg-[#F2A93B] text-[#10253F]';
+  };
+
+  const getProgressColor = (s: number) => {
+    if (s >= 80) return 'bg-[#4FA87B]';
+    if (s >= 60) return 'bg-[#F2A93B]';
+    return 'bg-[#C4634F]';
+  };
+
+  // Overall Verdict styling
+  let badgeBg = getVerdictStyle(verdict);
   let badgeIcon = AlertTriangle;
-
-  if (verdict === 'Strong Match') {
-    badgeBg = 'bg-[#4FA87B] text-[#10253F]';
-    badgeIcon = CheckCircle2;
-  } else if (verdict === 'Needs Work') {
-    badgeBg = 'bg-[#C4634F] text-[#F2F0E6]';
-    badgeIcon = XCircle;
-  }
-
+  if (verdict === 'Strong Match') badgeIcon = CheckCircle2;
+  if (verdict === 'Needs Work') badgeIcon = XCircle;
   const BadgeIcon = badgeIcon;
 
   const repoCountToDisplay = totalReposCount && totalReposCount > 0 ? totalReposCount : projectFits.length;
@@ -109,7 +122,7 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
 
         {/* Card Container */}
         <div className="bg-[#10253F] border border-[#3D6FB4] rounded-lg p-6 sm:p-8 space-y-6">
-          {/* Top Overall Verdict Banner */}
+          {/* Composite Overall Verdict Header */}
           <div className="p-5 bg-[#3D6FB4]/15 border border-[#3D6FB4] rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <span className="font-body text-xs font-semibold uppercase tracking-wider text-[#7C93AC]">
@@ -130,6 +143,103 @@ export const FitAnalysisSection: React.FC<FitAnalysisSectionProps> = ({
 
             <div className="text-left sm:text-right text-xs font-body text-[#7C93AC] max-w-xs">
               Analyzed {repoCountToDisplay} public repositories & resume entries against job requirements. Evaluated {matchCount} direct matches and {gapCount} skill gaps.
+            </div>
+          </div>
+
+          {/* DUAL SCORE SPLIT BREAKDOWN: GitHub Score vs Resume ATS Score */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Card 1: GitHub Code Score */}
+            <div
+              className={`p-4 bg-[#10253F] border rounded-lg space-y-3 cursor-pointer transition-all ${
+                activeTab === 'github'
+                  ? 'border-[#F2A93B] shadow-[0_0_12px_rgba(242,169,59,0.15)] ring-1 ring-[#F2A93B]/40'
+                  : 'border-[#3D6FB4] hover:border-[#3D6FB4]/80'
+              }`}
+              onClick={() => setActiveTab('github')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded bg-[#F2A93B]/20 border border-[#F2A93B]/50 flex items-center justify-center">
+                    <Github className="w-4 h-4 text-[#F2A93B]" />
+                  </div>
+                  <div>
+                    <h5 className="font-display font-bold text-sm text-[#F2F0E6]">
+                      GitHub Code Score
+                    </h5>
+                    <span className="font-body text-[11px] text-[#7C93AC]">
+                      Repository Code Evidence
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="font-mono-data font-bold text-xl text-[#F2F0E6] block">
+                    {githubScore}%
+                  </span>
+                  <span className={`px-2 py-0.5 text-[10px] font-mono-data font-semibold rounded-full ${getVerdictStyle(githubVerdict)}`}>
+                    {githubVerdict}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-[#3D6FB4]/20 rounded-full h-2 overflow-hidden border border-[#3D6FB4]/40">
+                <div
+                  className={`h-full transition-all duration-500 ${getProgressColor(githubScore)}`}
+                  style={{ width: `${githubScore}%` }}
+                />
+              </div>
+
+              <p className="font-body text-xs text-[#7C93AC] leading-relaxed">
+                Evaluates commit frequency, test coverage, CI configurations, and tech stack alignment in public repos.
+              </p>
+            </div>
+
+            {/* Card 2: Resume ATS Score */}
+            <div
+              className={`p-4 bg-[#10253F] border rounded-lg space-y-3 cursor-pointer transition-all ${
+                activeTab === 'resume'
+                  ? 'border-[#F2A93B] shadow-[0_0_12px_rgba(242,169,59,0.15)] ring-1 ring-[#F2A93B]/40'
+                  : 'border-[#3D6FB4] hover:border-[#3D6FB4]/80'
+              }`}
+              onClick={() => setActiveTab('resume')}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded bg-[#3D6FB4]/30 border border-[#3D6FB4] flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-[#F2A93B]" />
+                  </div>
+                  <div>
+                    <h5 className="font-display font-bold text-sm text-[#F2F0E6]">
+                      Resume ATS Score
+                    </h5>
+                    <span className="font-body text-[11px] text-[#7C93AC]">
+                      Keyword & Seniority Match
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="font-mono-data font-bold text-xl text-[#F2F0E6] block">
+                    {resumeAtsScore}%
+                  </span>
+                  <span className={`px-2 py-0.5 text-[10px] font-mono-data font-semibold rounded-full ${getVerdictStyle(resumeVerdict)}`}>
+                    {resumeVerdict}
+                  </span>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-[#3D6FB4]/20 rounded-full h-2 overflow-hidden border border-[#3D6FB4]/40">
+                <div
+                  className={`h-full transition-all duration-500 ${getProgressColor(resumeAtsScore)}`}
+                  style={{ width: `${resumeAtsScore}%` }}
+                />
+              </div>
+
+              <p className="font-body text-xs text-[#7C93AC] leading-relaxed">
+                Evaluates ATS keyword match, seniority alignment, experience metrics, and certification coverage.
+              </p>
             </div>
           </div>
 
