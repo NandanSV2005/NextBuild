@@ -162,3 +162,66 @@ export const SAMPLE_APPLICATION_PACKAGE: ApplicationPackage = {
   resumeHighlightSummary: `High-impact Full-Stack candidate with proven backend expertise in FastAPI/PostgreSQL and responsive frontend engineering in React/TypeScript. Recently engineered an async telemetry ingestion pipeline with Redis caching and real-time metric visualization, closing key infrastructure requirements for high-scale microservices.`,
   whyThisRoleBlurb: `I am thrilled to apply for the Full-Stack Software Engineer role at Apex Cloud Solutions. Having built distributed microservices and real-time analytics interfaces, I admire Apex Cloud's commitment to low-latency infrastructure monitoring. My recent project — an async log ingestion queue paired with automated metric anomaly detection — directly mirrors Apex Cloud's technical roadmap.`
 };
+
+export const SAMPLE_INTERVIEW_QUESTIONS = [
+  {
+    id: 'q-sample-1',
+    question: 'In your ecommerce-microservices-api repository, how did you structure asynchronous request handling and database migrations?',
+    targetCategory: 'System Architecture',
+    recruiterRationale: 'Interviewers at Apex Cloud Solutions assess whether you understand production API throughput and database consistency.',
+    starAnswer: {
+      situation: 'Building microservices targeting high-throughput request handling for Full-Stack Software Engineer roles.',
+      task: 'Ensure zero-downtime database updates and non-blocking I/O during peak telemetry spikes.',
+      action: 'Implemented FastAPI async route handlers, connection pooling with asyncpg, and Alembic migration scripts.',
+      result: 'Achieved sub-50ms API response latency and 99.9% uptime during telemetry stress tests.',
+    },
+  },
+  {
+    id: 'q-sample-2',
+    question: 'How do you handle API rate limiting, background queues, and failure retries when calling third-party services?',
+    targetCategory: 'Concurrency & Async',
+    recruiterRationale: 'Tests your understanding of distributed systems resilience and queue workers.',
+    starAnswer: {
+      situation: 'Handling fluctuating external API rate limits and network timeouts.',
+      task: 'Prevent cascading failures and user-facing 500 server errors.',
+      action: 'Integrated Redis message queues (RQ/Celery) with exponential backoff retries and circuit breaker patterns.',
+      result: 'Eliminated API dropouts and successfully handled 10,000+ queued background jobs without data loss.',
+    },
+  },
+  {
+    id: 'q-sample-3',
+    question: 'Walk me through your unit testing strategy and CI/CD workflow for your repositories.',
+    targetCategory: 'Testing & CI/CD',
+    recruiterRationale: 'Assesses production readiness and automated quality assurance habits.',
+    starAnswer: {
+      situation: 'Maintaining code quality across multi-contributor commits.',
+      task: 'Catch regressions automatically before merging to main branch.',
+      action: 'Configured GitHub Actions CI workflows running PyTest/Vitest, pre-commit linting, and Docker container builds.',
+      result: 'Maintained 85%+ code coverage and zero broken deployment regressions across 50+ commit iterations.',
+    },
+  },
+  {
+    id: 'q-sample-4',
+    question: 'How do you design RESTful API schemas and handle authentication tokens securely?',
+    targetCategory: 'API Design',
+    recruiterRationale: 'Evaluates API security fundamentals (JWT, CORS, authorization middleware).',
+    starAnswer: {
+      situation: 'Securing user profile data and API endpoints against unauthorized access.',
+      task: 'Implement stateless token authentication with token revocation capabilities.',
+      action: 'Used short-lived JWT access tokens alongside HTTP-only refresh tokens and role-based access middleware.',
+      result: 'Protected all internal API routes against unauthorized access and CSRF vulnerabilities.',
+    },
+  },
+  {
+    id: 'q-sample-5',
+    question: 'How would you optimize database queries when dealing with relational joins and index performance?',
+    targetCategory: 'Database Schema',
+    recruiterRationale: 'Tests database schema normalization and SQL optimization skills.',
+    starAnswer: {
+      situation: 'Scaling relational query speeds as dataset size grows.',
+      task: 'Reduce slow query execution times on complex joins.',
+      action: 'Analyzed EXPLAIN ANALYZE execution plans, added composite B-Tree indexes, and avoided N+1 query patterns.',
+      result: 'Reduced database query execution times by 70% under simulated load.',
+    },
+  },
+];

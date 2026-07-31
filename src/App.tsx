@@ -22,6 +22,7 @@ import {
   SAMPLE_PROJECT_FITS,
   SAMPLE_RECOMMENDED_PROJECTS,
   SAMPLE_APPLICATION_PACKAGE,
+  SAMPLE_INTERVIEW_QUESTIONS,
 } from './data/sampleData';
 import { JobPosting, Repo, ProjectFit, RecommendedProject, ApplicationPackage, ApplicationStatus } from './types';
 import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -54,7 +55,7 @@ function MainContent() {
   const [projectFits, setProjectFits] = useState<ProjectFit[]>(SAMPLE_PROJECT_FITS);
   const [recommendedProjects, setRecommendedProjects] = useState<RecommendedProject[]>(SAMPLE_RECOMMENDED_PROJECTS);
   const [appPackage, setAppPackage] = useState<ApplicationPackage>(SAMPLE_APPLICATION_PACKAGE);
-  const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestionItem[]>([]);
+  const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestionItem[]>(SAMPLE_INTERVIEW_QUESTIONS);
 
   // Loading & status banners
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -480,9 +481,7 @@ function MainContent() {
                   overallScore={overallScore}
                 />
 
-                {interviewQuestions.length > 0 && (
-                  <InterviewPrepSection questions={interviewQuestions} />
-                )}
+                <InterviewPrepSection questions={interviewQuestions.length > 0 ? interviewQuestions : SAMPLE_INTERVIEW_QUESTIONS} />
 
                 <ApplicationPackageSection
                   appPackage={appPackage}
