@@ -14,7 +14,7 @@ export const InterviewPrepSection: React.FC<InterviewPrepSectionProps> = ({ ques
   };
 
   return (
-    <div className="bg-[#10253F] border border-[#3D6FB4] rounded-lg p-6 sm:p-8 space-y-6">
+    <div id="step-interview-prep" className="bg-[#10253F] border border-[#3D6FB4] rounded-lg p-6 sm:p-8 space-y-6 scroll-mt-20">
       {/* Section Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#3D6FB4]/40 pb-4">
         <div className="space-y-1">

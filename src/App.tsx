@@ -30,13 +30,23 @@ import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 function MainContent() {
   const { currentUser } = useAuth();
 
-  // Page Navigation State ('landing' | 'intake' | 'results')
-  const [activePage, setActivePage] = useState<'landing' | 'intake' | 'results'>('landing');
+  // Page Navigation State ('landing' | 'intake' | 'results' | 'interview-prep')
+  const [activePage, setActivePage] = useState<'landing' | 'intake' | 'results' | 'interview-prep'>('landing');
 
   // Modals state
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
   const [savedPlansModalOpen, setSavedPlansModalOpen] = useState<boolean>(false);
+
+  const handleNavigateToInterviewPrep = () => {
+    setActivePage('results');
+    setTimeout(() => {
+      const el = document.getElementById('step-interview-prep');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
 
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
@@ -336,6 +346,7 @@ function MainContent() {
         activePage={activePage}
         hasAnalyzed={hasAnalyzed}
         onNavigate={setActivePage}
+        onNavigateToInterviewPrep={handleNavigateToInterviewPrep}
         onSignInClick={() => openAuthModal('signin')}
         onSignUpClick={() => openAuthModal('signup')}
         onOpenSavedPlans={() => setSavedPlansModalOpen(true)}

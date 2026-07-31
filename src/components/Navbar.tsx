@@ -3,9 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { User, LogOut, FolderKanban } from 'lucide-react';
 
 interface NavbarProps {
-  activePage: 'landing' | 'intake' | 'results';
+  activePage: 'landing' | 'intake' | 'results' | 'interview-prep';
   hasAnalyzed: boolean;
-  onNavigate: (page: 'landing' | 'intake' | 'results') => void;
+  onNavigate: (page: 'landing' | 'intake' | 'results' | 'interview-prep') => void;
+  onNavigateToInterviewPrep: () => void;
   onSignInClick: () => void;
   onSignUpClick: () => void;
   onOpenSavedPlans: () => void;
@@ -15,11 +16,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   activePage,
   hasAnalyzed,
   onNavigate,
+  onNavigateToInterviewPrep,
   onSignInClick,
   onSignUpClick,
   onOpenSavedPlans,
 }) => {
   const { currentUser, logout } = useAuth();
+
+  const handleSignOut = async () => {
+    await logout();
+    onNavigate('landing');
+  };
 
   return (
     <header className="w-full border-b border-[#3D6FB4]/40 bg-[#10253F]/90 backdrop-blur-sm sticky top-0 z-50">
@@ -45,7 +52,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Center Page Tabs */}
-        <div className="hidden sm:flex items-center space-x-1.5 bg-[#3D6FB4]/20 p-1 rounded-lg border border-[#3D6FB4]/40 text-xs font-body">
+        <div className="hidden md:flex items-center space-x-1.5 bg-[#3D6FB4]/20 p-1 rounded-lg border border-[#3D6FB4]/40 text-xs font-body">
           <button
             type="button"
             onClick={() => onNavigate('landing')}
@@ -80,6 +87,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             Build Plan & Results
           </button>
+          <button
+            type="button"
+            onClick={onNavigateToInterviewPrep}
+            disabled={!hasAnalyzed}
+            className={`px-3 py-1.5 rounded-md font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+              activePage === 'interview-prep'
+                ? 'bg-[#F2A93B] text-[#10253F] shadow-sm'
+                : 'text-[#7C93AC] hover:text-[#F2F0E6]'
+            }`}
+          >
+            Interview Prep
+          </button>
         </div>
 
         {/* Right side navigation / Auth buttons */}
@@ -106,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
               <button
                 type="button"
-                onClick={logout}
+                onClick={handleSignOut}
                 title="Sign Out"
                 className="text-[#7C93AC] hover:text-[#C4634F] p-1.5 rounded-lg border border-[#3D6FB4]/50 hover:border-[#C4634F]/50 transition-colors cursor-pointer flex items-center space-x-1 text-xs"
               >
