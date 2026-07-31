@@ -1,6 +1,10 @@
 # NextBuild 🚀
 > **AI-Powered Job Search & Skill-Gap Assistant for College & University Students**
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-https%3A%2F%2Fnext--build--seven.vercel.app-10253F?style=for-the-badge&logo=vercel&logoColor=F2A93B)](https://next-build-seven.vercel.app)
+
+🌐 **Live Application:** [**https://next-build-seven.vercel.app**](https://next-build-seven.vercel.app)
+
 NextBuild is a full-stack web application designed to help software engineering students streamline their job search. By analyzing a student's resume and GitHub profile against target job descriptions and company technical context, NextBuild provides project-by-project match ratings, generates 3-milestone actionable build roadmaps to close skill gaps, and drafts tailored application packages.
 
 ---

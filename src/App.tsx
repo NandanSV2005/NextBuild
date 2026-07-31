@@ -38,7 +38,19 @@ function MainContent() {
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
   const [savedPlansModalOpen, setSavedPlansModalOpen] = useState<boolean>(false);
 
+  const handleNavigate = (page: 'landing' | 'intake' | 'results' | 'interview-prep') => {
+    if (!currentUser && page !== 'landing') {
+      openAuthModal('signin');
+      return;
+    }
+    setActivePage(page);
+  };
+
   const handleNavigateToInterviewPrep = () => {
+    if (!currentUser) {
+      openAuthModal('signin');
+      return;
+    }
     setActivePage('interview-prep');
     setTimeout(() => {
       const el = document.getElementById('step-interview-prep');
@@ -47,6 +59,13 @@ function MainContent() {
       }
     }, 100);
   };
+
+  useEffect(() => {
+    if (!currentUser && activePage !== 'landing') {
+      setActivePage('landing');
+      openAuthModal('signin');
+    }
+  }, [currentUser, activePage]);
 
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
@@ -351,7 +370,7 @@ function MainContent() {
       <Navbar
         activePage={activePage}
         hasAnalyzed={hasAnalyzed}
-        onNavigate={setActivePage}
+        onNavigate={handleNavigate}
         onNavigateToInterviewPrep={handleNavigateToInterviewPrep}
         onSignInClick={() => openAuthModal('signin')}
         onSignUpClick={() => openAuthModal('signup')}
@@ -372,7 +391,7 @@ function MainContent() {
           <LandingPage
             onGetStarted={() => openAuthModal('signup')}
             onSignInClick={() => openAuthModal('signin')}
-            onExploreGuest={() => setActivePage('intake')}
+            onExploreGuest={() => handleNavigate('intake')}
           />
         ) : activePage === 'intake' ? (
           <>
