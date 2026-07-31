@@ -141,37 +141,43 @@ export async function evaluateFit(params: EvaluateFitParams): Promise<FitEngineR
       });
     }
 
-    // FIX #1: prompt now explicitly built around REAL fetched evidence (readme, commits, tests/CI/docker,
-    // dependency file) instead of asking the model to reason about data it was never given.
-    // FIX #2: explicit instruction to state "not found" rather than infer/hallucinate when data is missing.
-    const githubFitPrompt = `You are a strict, pragmatic senior software engineering hiring manager conducting a thorough technical review. Read and reason through each project's ACTUAL fetched evidence before scoring — do not pattern-match on tech tags alone, and do NOT invent details for evidence that is missing.
+    const repoNamesList = (repos || []).map(r => r.name).filter(Boolean);
 
-Candidate Repositories (each includes real fetched data: readmeContent, recent commits, hasTests, hasCI, hasDocker, dependencyFile — if a field is null/empty, that means it genuinely was not found, not that you should guess): ${JSON.stringify(repos || [])}
-Target Job: ${JSON.stringify(job || {})}
+    const githubFitPrompt = `You are a strict, pragmatic senior software engineering hiring manager conducting a thorough technical review of a candidate's GitHub portfolio.
+
+CRITICAL REQUIREMENT: The candidate provided exactly ${repos.length} repositories with the following EXACT names:
+${JSON.stringify(repoNamesList)}
+
+You MUST evaluate and return a ProjectFit entry for EVERY SINGLE ONE of these ${repos.length} repositories in the exact order listed above.
+Do NOT invent repository names. Use the EXACT "name" provided for each project!
+
+Candidate Repositories Data (includes real fetched evidence: readmeContent, recent commits, hasTests, hasCI, hasDocker, dependencyFile):
+${JSON.stringify(repos || [])}
+
+Target Job Posting:
+${JSON.stringify(job || {})}
+
 Company Technical Context: ${hasCompanyResearch ? companyResearch : "None provided (use JD requirements only)"}
 
-For EACH project, work through:
-1. README claims vs. reality: if readmeContent is present, what does it say the project does? Does the language/tech stack and dependencyFile support that claim? If readmeContent is null, explicitly state "No README found" rather than inferring purpose from the repo name.
-2. Commit pattern: look at the actual commits array. Does it show incremental development over time (multiple commits with meaningfully different dates/messages), or a single/few large commits suggesting the code was written elsewhere and uploaded? If commits data is empty, state that commit history could not be analyzed.
-3. Engineering maturity: use the real hasTests, hasCI, hasDocker fields directly — do not guess. Their presence suggests production-minded habits; their absence in an otherwise complex project is worth noting.
-4. Originality: based on the README and file structure, does this look like a fork, a close clone of a known tutorial/bootcamp project, or original work? State your confidence plainly, and say "cannot determine" if there isn't enough evidence either way.
-5. Recency: use the real lastActive/updatedAt date.
-6. Relevance to this specific JD (and company context, if provided) — not general competence.
+For EACH repository (all ${repos.length} of them), evaluate:
+1. README claims vs reality: if readmeContent is present, what does it say the project does? If null, state "No README found".
+2. Commit pattern: examine commits array. Does it show incremental development or a single upload?
+3. Engineering maturity: check hasTests, hasCI, hasDocker fields.
+4. Originality & Recency: evaluate repo freshness and whether it appears original or cloned.
+5. Relevance to target job requirements.
 
 CRITICAL SCORING RULES:
-1. No meaningful skill overlap → score <50, verdict 'Needs Work'.
-2. Substantive, README-and-commit-backed 80%+ requirement coverage → score 80-100, verdict 'Strong Match'.
-3. Tags unsupported by README/commits/dependencies must be called out, not silently trusted.
-4. Never default to 'Partial Match' when uncertain — state what's missing to resolve the uncertainty.
-5. If evidence for a project is almost entirely absent (no README, no commits, no dependency file), say so explicitly in the reasoning and score conservatively — do not fabricate confidence.
+1. No meaningful skill overlap → verdict 'Weak Match' or 'Missing Tech'.
+2. Substantive, README-and-commit-backed 80%+ requirement coverage → verdict 'Direct Match'.
+3. Always cite specific evidence in reasoning.
 
 For EACH project, provide:
-- id & projectName
+- id & projectName (must match exact candidate repo name)
 - verdict: 'Direct Match' | 'Partial Match' | 'Weak Match' | 'Missing Tech'
 - verdictColor: 'green' | 'amber' | 'red'
 - readmeSummary: 1-2 sentences on what the README actually says, or "No README found" if null
 - engineeringSignals: { commitPattern: string, hasTests: boolean, hasCI: boolean, hasDeployment: boolean, appearsOriginal: boolean, lastActive: string }
-- reasoning: 3-5 sentences citing specific evidence, stating whether tags were actually backed up, and whether company research or JD-only informed the verdict
+- reasoning: 3-5 sentences citing specific evidence, stating whether tech tags were backed up
 
 Also provide top-level scores:
 - githubScore: 0-100 score strictly evaluating code evidence, commit quality, tests/CI, and GitHub repository match
@@ -237,24 +243,40 @@ Also provide top-level scores:
     const getV = (s: number): 'Strong Match' | 'Partial Match' | 'Needs Work' =>
       s >= 80 ? 'Strong Match' : s >= 60 ? 'Partial Match' : 'Needs Work';
 
-    const mappedFits: ProjectFit[] = Array.isArray(parsed.projectFits) && parsed.projectFits.length > 0
-      ? parsed.projectFits.map((pf: any, idx: number) => ({
-          id: pf.id || repos[idx]?.id || `fit-${idx}`,
-          projectName: pf.projectName || repos[idx]?.name || `Project ${idx + 1}`,
-          verdict: ['Direct Match', 'Partial Match', 'Weak Match', 'Missing Tech'].includes(pf.verdict) ? pf.verdict : 'Partial Match',
-          verdictColor: ['green', 'amber', 'red'].includes(pf.verdictColor) ? pf.verdictColor : 'amber',
-          readmeSummary: pf.readmeSummary || (repos[idx]?.readmeContent ? `Repository focusing on ${repos[idx]?.techStack?.join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
-          // FIX #3: default to null/unknown, never a fabricated favorable claim, when the model omits a field
-          engineeringSignals: pf.engineeringSignals || {
-            commitPattern: 'Not determined',
-            hasTests: null,
-            hasCI: null,
-            hasDeployment: null,
-            appearsOriginal: null,
-            lastActive: repos[idx]?.updatedAt || 'Unknown',
-          },
-          reasoning: pf.reasoning || 'Project evaluated against required job skills.',
-        }))
+    // Map 1-to-1 against candidate's actual input repositories using exact repo names
+    const mappedFits: ProjectFit[] = (repos && repos.length > 0)
+      ? repos.map((r, idx) => {
+          const pf = Array.isArray(parsed.projectFits)
+            ? (parsed.projectFits.find((p: any) => p.projectName?.toLowerCase() === r.name?.toLowerCase() || p.id === r.id) || parsed.projectFits[idx])
+            : null;
+
+          const verdict: 'Direct Match' | 'Partial Match' | 'Weak Match' | 'Missing Tech' =
+            pf && ['Direct Match', 'Partial Match', 'Weak Match', 'Missing Tech'].includes(pf.verdict)
+              ? pf.verdict
+              : 'Partial Match';
+
+          const verdictColor: 'green' | 'amber' | 'red' =
+            pf && ['green', 'amber', 'red'].includes(pf.verdictColor)
+              ? pf.verdictColor
+              : (verdict === 'Direct Match' ? 'green' : verdict === 'Weak Match' || verdict === 'Missing Tech' ? 'red' : 'amber');
+
+          return {
+            id: r.id || `repo-${idx}`,
+            projectName: r.name || `Project ${idx + 1}`, // EXACT candidate GitHub repo name
+            verdict,
+            verdictColor,
+            readmeSummary: pf?.readmeSummary || (r.readmeContent ? `Repository focused on ${(r.techStack || []).join(', ') || 'software engineering'}.` : 'No README found for this repository.'),
+            engineeringSignals: pf?.engineeringSignals || {
+              commitPattern: r.commits && r.commits.length > 0 ? 'Incremental commits' : 'Not determined',
+              hasTests: typeof r.hasTests === 'boolean' ? r.hasTests : null,
+              hasCI: typeof r.hasCI === 'boolean' ? r.hasCI : null,
+              hasDeployment: null,
+              appearsOriginal: null,
+              lastActive: r.updatedAt || 'Unknown',
+            },
+            reasoning: pf?.reasoning || `Repository "${r.name}" evaluated against target job requirements for ${job.title || 'engineering role'}.`,
+          };
+        })
       : fallbackResult.projectFits;
 
     return {
