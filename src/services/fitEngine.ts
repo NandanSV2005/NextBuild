@@ -810,8 +810,18 @@ export async function generateInterviewQuestions(
     }
 
     const repoNamesList = repos.map((r) => r.name);
+    const targetRole = job?.title || "Software Engineer";
+    const targetCompany = job?.company || "Target Company";
 
-    const interviewPrepPrompt = `You are a senior engineering interviewer preparing a candidate for a technical screen. Generate exactly 5 technical interview questions grounded in the candidate's REAL repository evidence, cross-referenced against the target job.
+    const interviewPrepPrompt = `You are a senior engineering interviewer specializing in evaluating candidates for "${targetRole}" roles at "${targetCompany}".
+
+ROLE SPECIALIZATION DIRECTIVE:
+The candidate is applying specifically for a "${targetRole}" position. Every question must directly probe technical competencies expected of a candidate in this exact role type:
+- If "${targetRole}" is a Backend / Cloud / API role: focus questions on API throughput, async I/O, relational database normalization, query indexing, Redis caching, microservices, and queue processing.
+- If "${targetRole}" is a Frontend / UI / React role: focus questions on component architecture, state management, re-render optimization, DOM rendering performance, client-side caching, and API integration.
+- If "${targetRole}" is a Full-Stack role: balance questions between frontend state/UI architecture and backend API/database performance.
+- If "${targetRole}" is a Data Engineering / Machine Learning / AI role: focus questions on data ingestion pipelines, ETL jobs, vector embeddings, model deployment, schema design, and memory/GPU resource allocation.
+- If "${targetRole}" is a DevOps / SRE / Infrastructure role: focus questions on CI/CD pipelines, Docker containerization, Kubernetes orchestration, infrastructure monitoring, and failover resilience.
 
 CRITICAL GROUNDING RULE: You have access to README content, tech stack, dependency files, and presence/absence of tests/CI/Docker for each repo — you do NOT have the actual source code. Every question must be answerable using ONLY this evidence:
 - Base questions on the tech stack, architecture choices visible in the README, and structural signals (tests present or absent, CI present or absent, Docker present or absent, what dependency file exists).
@@ -824,15 +834,15 @@ Candidate Repositories (real evidence — readmeContent, commits, hasTests, hasC
 Target Job: ${JSON.stringify(job || {})}
 
 Prioritize questions in this order of value to the candidate:
-1. Questions on the repo(s) most relevant to the JD's required skills/domain.
-2. Questions that combine a real project's evidenced tech stack with a concept the JD specifically cares about (e.g., if the JD mentions "scalability" and a repo shows a database dependency, ask about scaling that data layer).
+1. Questions on the repo(s) most relevant to the "${targetRole}" position's required skills/domain.
+2. Questions that combine a real project's evidenced tech stack with a concept the "${targetRole}" JD specifically cares about.
 3. If a repo shows tests/CI absent on an otherwise relevant project, one question can reasonably probe how the candidate would think about testing/CI for that kind of system — framed as "how would you approach X", not "why didn't you do X" (stay constructive, not accusatory).
 
 For EACH of the 5 questions, provide:
 - repoName: the exact repo this question is grounded in
-- question: the interview question itself, written the way a real interviewer would ask it
+- question: the interview question itself, written the way a real interviewer would ask a "${targetRole}" candidate
 - conceptTested: the underlying engineering concept being probed (e.g., "async I/O vs blocking calls", "caching invalidation strategy", "test coverage philosophy")
-- whyRecruitersAskThis: 2-3 sentences explaining the engineering concept and why it signals seniority/competence to an interviewer
+- whyRecruitersAskThis: 2-3 sentences explaining the engineering concept and why it signals seniority/competence to an interviewer evaluating a "${targetRole}" candidate
 - modelStarAnswer: a structured example answer using the STAR format (Situation, Task, Action, Result), where Action is a bulleted array of 3-5 specific, plausible steps grounded in what the repo evidence actually shows (tech stack, structure) — written as a model answer a student could adapt, not a fabricated claim about what they definitely did
 - evidenceBasis: 1 sentence stating exactly what evidence (a specific README detail, a dependency, a tests/CI flag) this question was grounded in — this keeps the reasoning auditable rather than opaque
 
