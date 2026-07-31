@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { AuthProvider } from './context/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { ResumeUploadSection } from './components/ResumeUploadSection';
@@ -17,11 +20,15 @@ import {
   SAMPLE_APPLICATION_PACKAGE,
 } from './data/sampleData';
 import { JobPosting, Repo, ProjectFit, RecommendedProject, ApplicationPackage, ApplicationStatus } from './types';
-import { X, Github, Mail, ShieldCheck, Sparkles, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 
-export default function App() {
-  // Page Navigation State ('intake' or 'results')
-  const [activePage, setActivePage] = useState<'intake' | 'results'>('intake');
+function MainContent() {
+  // Page Navigation State ('landing' | 'intake' | 'results')
+  const [activePage, setActivePage] = useState<'landing' | 'intake' | 'results'>('landing');
+
+  // Auth Modal state
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
 
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
@@ -29,7 +36,6 @@ export default function App() {
   const [repos, setRepos] = useState<Repo[]>([]);
   const [currentJob, setCurrentJob] = useState<JobPosting>(SAMPLE_JOBS[0]);
   const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>('Saved');
-  const [signInModalOpen, setSignInModalOpen] = useState<boolean>(false);
 
   // Dynamic Fit Analysis State
   const [overallScore, setOverallScore] = useState<number>(74);
@@ -49,7 +55,12 @@ export default function App() {
   // Process control state
   const [hasAnalyzed, setHasAnalyzed] = useState<boolean>(false);
 
-  // Handlers (Updating inputs without auto-running heavy pipeline)
+  // Handlers
+  const openAuthModal = (tab: 'signin' | 'signup') => {
+    setAuthModalTab(tab);
+    setAuthModalOpen(true);
+  };
+
   const handleScrollToResume = () => {
     const el = document.getElementById('step-resume');
     if (el) {
@@ -118,8 +129,7 @@ export default function App() {
     let companySignal = '';
     let currentFitAnalysis: any = null;
 
-    // Helper for fetch with 5-second timeout
-    const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs = 5000) => {
+    const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs = 6000) => {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -133,7 +143,6 @@ export default function App() {
     };
 
     try {
-      // Step 1: Research company signal (optional enrichment)
       try {
         const compRes = await fetchWithTimeout('/api/company/research', {
           method: 'POST',
@@ -148,14 +157,13 @@ export default function App() {
         console.warn('Company research optional fallback:', e);
       }
 
-      // Step 2: Fit Analysis
       setAnalysisStatusText('Evaluating project match against job requirements & company tech stack...');
       try {
         const fitRes = await fetchWithTimeout('/api/analysis/fit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ repos: currentRepos, job: targetJob, companyResearch: companySignal }),
-        }, 6000);
+        }, 8000);
 
         if (fitRes.ok) {
           const fitData = await fitRes.json();
@@ -174,66 +182,62 @@ export default function App() {
         }
       } catch (e) {
         console.warn('Fit analysis fetch fallback:', e);
+        // Set real candidate repos in project fits fallback
+        const fallbackFits: ProjectFit[] = currentRepos.map((r, i) => ({
+          id: r.id || `repo-${i}`,
+          projectName: r.name,
+          verdict: 'Partial Match',
+          verdictColor: 'amber',
+          readmeSummary: r.description || `Repository focusing on ${(r.techStack || []).join(', ') || 'software engineering'}.`,
+          reasoning: `Repository "${r.name}" (${(r.techStack || []).join(', ') || 'code'}) evaluated against target job requirements for ${targetJob.title}.`,
+        }));
+        setProjectFits(fallbackFits);
       }
 
-      // Step 3: Roadmap Generation
       setAnalysisStatusText('Generating 3-step project build roadmap to close identified skill gaps...');
       try {
-        const roadRes = await fetchWithTimeout('/api/roadmap/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ job: targetJob, fitAnalysis: currentFitAnalysis, companyResearch: companySignal }),
-        }, 5000);
-
-        if (roadRes.ok) {
-          const roadData = await roadRes.json();
-          if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
-            setRecommendedProjects(roadData.recommendedProjects);
-          }
-        }
-      } catch (e) {
-        console.warn('Roadmap generate fetch fallback:', e);
-      }
-
-      // Step 4: Application Package Generation
-      setAnalysisStatusText('Drafting tailored resume highlight & "why this role" blurb...');
-      try {
-        const pkgRes = await fetchWithTimeout('/api/package/generate', {
+        const roadRes = await fetchWithTimeout('/api/analysis/roadmap', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            repos: currentRepos,
             job: targetJob,
-            candidateInfo: { candidateName: 'Alex Chen', degree: 'B.S. Computer Science' },
+            companyResearch: companySignal,
             fitAnalysis: currentFitAnalysis,
           }),
-        }, 4000);
+        }, 8000);
 
-        if (pkgRes.ok) {
-          const pkgData = await pkgRes.json();
-          if (pkgData.success && pkgData.appPackage) {
-            setAppPackage({
-              resumeHighlightSummary: pkgData.appPackage.resumeHighlightSummary || SAMPLE_APPLICATION_PACKAGE.resumeHighlightSummary,
-              whyThisRoleBlurb: pkgData.appPackage.whyThisRoleBlurb || SAMPLE_APPLICATION_PACKAGE.whyThisRoleBlurb,
-            });
+        if (roadRes.ok) {
+          const roadData = await roadRes.json();
+          if (roadData.success && Array.isArray(roadData.roadmap) && roadData.roadmap.length > 0) {
+            setRecommendedProjects(roadData.roadmap);
           }
         }
       } catch (e) {
-        console.warn('Package generate fetch fallback:', e);
+        console.warn('Roadmap fetch fallback:', e);
       }
-    } catch (err) {
-      console.error('Full AI analysis error:', err);
+
+      setAnalysisStatusText('Drafting tailored cold email & LinkedIn recruiter outreach message...');
+      try {
+        const pkgRes = await fetchWithTimeout('/api/analysis/outreach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job: targetJob, repos: currentRepos }),
+        }, 8000);
+
+        if (pkgRes.ok) {
+          const pkgData = await pkgRes.json();
+          if (pkgData.success && pkgData.applicationPackage) {
+            setAppPackage(pkgData.applicationPackage);
+          }
+        }
+      } catch (e) {
+        console.warn('Outreach package fetch fallback:', e);
+      }
+
     } finally {
       setIsAnalyzing(false);
-      setAnalysisStatusText('');
       setHasAnalyzed(true);
-      setTimeout(() => {
-        const el = document.getElementById('step-fit');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-      }, 150);
     }
   };
 
@@ -244,7 +248,8 @@ export default function App() {
         activePage={activePage}
         hasAnalyzed={hasAnalyzed}
         onNavigate={setActivePage}
-        onSignInClick={() => setSignInModalOpen(true)}
+        onSignInClick={() => openAuthModal('signin')}
+        onSignUpClick={() => openAuthModal('signup')}
       />
 
       {/* Analysis Loading Indicator Banner */}
@@ -255,21 +260,24 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content Sections */}
+      {/* Main Content Pages */}
       <main className="flex-1">
-        {activePage === 'intake' ? (
+        {activePage === 'landing' ? (
+          <LandingPage
+            onGetStarted={() => openAuthModal('signup')}
+            onSignInClick={() => openAuthModal('signin')}
+            onExploreGuest={() => setActivePage('intake')}
+          />
+        ) : activePage === 'intake' ? (
           <>
-            {/* Section 2: Hero */}
             <HeroSection onGetStartedClick={handleScrollToResume} />
 
-            {/* Section 3: Step 1 - Resume Upload */}
             <ResumeUploadSection
               selectedResume={selectedResume}
               onResumeChange={handleResumeChange}
               onUseSample={handleUseSampleResume}
             />
 
-            {/* Section 4: Step 2 - GitHub Connect */}
             <GithubConnectSection
               connectedUser={connectedGithubUser}
               repos={repos}
@@ -277,13 +285,12 @@ export default function App() {
               onDisconnect={handleDisconnectGithub}
             />
 
-            {/* Section 5: Step 3 - Job Description */}
             <JobDescriptionSection
               currentJob={currentJob}
               onSelectJob={handleSelectJob}
             />
 
-            {/* Section 6: Action Step — Trigger Process */}
+            {/* Action Trigger */}
             <section className="w-full py-10 px-4 sm:px-6 lg:px-8 border-b border-[#3D6FB4]/30 bg-[#3D6FB4]/10">
               <div className="max-w-4xl mx-auto space-y-4">
                 <div className="flex items-center space-x-2">
@@ -303,7 +310,6 @@ export default function App() {
                     </p>
                   </div>
 
-                  {/* Input Readiness Indicators */}
                   <div className="flex flex-wrap items-center justify-center gap-3 py-2 text-xs font-mono-data">
                     <span className={`px-3 py-1 rounded-full border ${selectedResume ? 'bg-[#4FA87B]/20 text-[#4FA87B] border-[#4FA87B]/40 font-semibold' : 'bg-[#3D6FB4]/20 text-[#7C93AC] border-[#3D6FB4]'}`}>
                       {selectedResume ? `✓ Resume: ${selectedResume}` : 'Resume: Sample Ready'}
@@ -316,17 +322,15 @@ export default function App() {
                     </span>
                   </div>
 
-                  {/* Primary Action Button */}
                   <div>
                     <button
                       type="button"
                       onClick={handleStartProcess}
                       disabled={isAnalyzing}
-                      className="inline-flex items-center space-x-2 bg-[#F2A93B] hover:bg-[#f5b857] text-[#10253F] font-body font-bold text-base sm:text-lg px-8 py-4 rounded-md transition-all shadow-lg hover:shadow-xl cursor-pointer disabled:opacity-50"
+                      className="bg-[#F2A93B] hover:bg-[#f5b857] text-[#10253F] font-body font-bold px-8 py-4 rounded-md text-base transition-all shadow-[0_0_20px_rgba(242,169,59,0.3)] hover:shadow-[0_0_25px_rgba(242,169,59,0.5)] cursor-pointer inline-flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Sparkles className="w-5 h-5 text-[#10253F]" />
                       <span>Analyze Fit & Generate Build Plan</span>
-                      <ArrowRight className="w-5 h-5 text-[#10253F]" />
+                      <ArrowRight className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -334,48 +338,43 @@ export default function App() {
             </section>
           </>
         ) : (
-          /* Dedicated Results Page View */
-          <div className="w-full">
-            {/* Page Header Bar */}
-            <section className="w-full py-8 px-4 sm:px-6 lg:px-8 bg-[#10253F] border-b border-[#3D6FB4]/30">
-              <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-body text-xs font-semibold uppercase tracking-widest text-[#F2A93B]">
-                      Analysis Results
-                    </span>
-                    <span className="text-[#3D6FB4]">•</span>
-                    <span className="font-mono-data text-xs text-[#7C93AC]">
-                      {currentJob.company} — {currentJob.title}
-                    </span>
-                  </div>
-                  <h1 className="font-display font-bold text-2xl sm:text-3xl text-[#F2F0E6]">
-                    Your Customized Build Plan & Fit Rating
-                  </h1>
-                </div>
-
+          /* Results Page */
+          <div className="py-8 space-y-12 animate-fadeIn max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#3D6FB4]/40 pb-6">
+              <div className="space-y-1">
                 <button
                   type="button"
                   onClick={() => setActivePage('intake')}
-                  className="inline-flex items-center space-x-2 bg-[#3D6FB4]/20 hover:bg-[#3D6FB4]/40 text-[#F2F0E6] border border-[#3D6FB4] px-4 py-2 rounded text-xs font-body font-semibold transition-colors cursor-pointer shrink-0"
+                  className="text-xs font-mono-data text-[#7C93AC] hover:text-[#F2A93B] flex items-center space-x-1 mb-2 transition-colors cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#F2A93B]" />
-                  <span>Modify Inputs (Intake Form)</span>
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Edit Resume, GitHub & Job Input</span>
+                </button>
+                <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#F2F0E6] tracking-tight">
+                  Portfolio Fit & Build Plan Results
+                </h2>
+                <p className="font-body text-xs sm:text-sm text-[#7C93AC]">
+                  Target Posting: <span className="text-[#F2A93B] font-semibold">{currentJob.title}</span> at <span className="text-[#F2F0E6] font-semibold">{currentJob.company}</span>
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => runFullAnalysis(repos.length > 0 ? repos : SAMPLE_REPOS, currentJob)}
+                  disabled={isAnalyzing}
+                  className="px-4 py-2 bg-[#3D6FB4]/20 hover:bg-[#3D6FB4]/40 border border-[#3D6FB4] text-[#F2F0E6] font-body text-xs font-semibold rounded transition-colors cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
+                >
+                  <Loader2 className={`w-3.5 h-3.5 ${isAnalyzing ? 'animate-spin' : ''}`} />
+                  <span>Re-Analyze Portfolio</span>
                 </button>
               </div>
-            </section>
+            </div>
 
-            {/* High-Tech Animated Blueprint Loading Screen */}
             {isAnalyzing ? (
-              <BlueprintLoadingAnimation
-                statusText={analysisStatusText}
-                companyName={currentJob.company}
-                githubUser={connectedGithubUser}
-                reposCount={repos.length > 0 ? repos.length : 16}
-              />
+              <BlueprintLoadingAnimation />
             ) : (
               <>
-                {/* Results Content */}
                 <FitAnalysisSection
                   overallScore={overallScore}
                   githubScore={githubScore}
@@ -420,54 +419,21 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Sign In Modal */}
-      {signInModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#10253F]/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#10253F] border border-[#3D6FB4] rounded-lg p-6 sm:p-8 space-y-6 shadow-2xl relative">
-            <button
-              type="button"
-              onClick={() => setSignInModalOpen(false)}
-              className="absolute top-4 right-4 text-[#7C93AC] hover:text-[#F2F0E6] cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="space-y-2">
-              <h3 className="font-display font-bold text-xl text-[#F2F0E6]">
-                Sign in to NextBuild
-              </h3>
-              <p className="font-body text-xs text-[#7C93AC]">
-                Save your target job roadmaps and track build milestones across sessions.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={() => setSignInModalOpen(false)}
-                className="w-full bg-[#3D6FB4] hover:bg-[#4b82cb] text-[#F2F0E6] font-body font-semibold px-4 py-3 rounded text-sm transition-colors cursor-pointer flex items-center justify-center space-x-2"
-              >
-                <Github className="w-4 h-4 text-[#F2A93B]" />
-                <span>Continue with GitHub</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSignInModalOpen(false)}
-                className="w-full bg-transparent hover:bg-[#3D6FB4]/20 text-[#F2F0E6] border border-[#3D6FB4] font-body font-semibold px-4 py-3 rounded text-sm transition-colors cursor-pointer flex items-center justify-center space-x-2"
-              >
-                <Mail className="w-4 h-4 text-[#7C93AC]" />
-                <span>Continue with Email</span>
-              </button>
-            </div>
-
-            <div className="pt-2 border-t border-[#3D6FB4]/30 flex items-center justify-center space-x-1.5 text-[11px] font-body text-[#7C93AC]">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#4FA87B]" />
-              <span>We never modify your public repos or private data</span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialTab={authModalTab}
+        onAuthSuccess={() => setActivePage('intake')}
+      />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainContent />
+    </AuthProvider>
   );
 }
