@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/AuthModal';
+import { SavedPlansModal } from './components/SavedPlansModal';
 import { LandingPage } from './components/LandingPage';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
@@ -9,8 +10,11 @@ import { GithubConnectSection } from './components/GithubConnectSection';
 import { JobDescriptionSection } from './components/JobDescriptionSection';
 import { FitAnalysisSection } from './components/FitAnalysisSection';
 import { RoadmapSection } from './components/RoadmapSection';
+import { InterviewPrepSection } from './components/InterviewPrepSection';
 import { ApplicationPackageSection } from './components/ApplicationPackageSection';
 import { BlueprintLoadingAnimation } from './components/BlueprintLoadingAnimation';
+import { saveBuildPlanToCloud } from './lib/firebase';
+import { InterviewQuestionItem } from './services/fitEngine';
 import {
   SAMPLE_RESUME_FILENAME,
   SAMPLE_REPOS,
@@ -23,12 +27,15 @@ import { JobPosting, Repo, ProjectFit, RecommendedProject, ApplicationPackage, A
 import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 function MainContent() {
+  const { currentUser } = useAuth();
+
   // Page Navigation State ('landing' | 'intake' | 'results')
   const [activePage, setActivePage] = useState<'landing' | 'intake' | 'results'>('landing');
 
-  // Auth Modal state
+  // Modals state
   const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup'>('signin');
+  const [savedPlansModalOpen, setSavedPlansModalOpen] = useState<boolean>(false);
 
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
@@ -47,6 +54,7 @@ function MainContent() {
   const [projectFits, setProjectFits] = useState<ProjectFit[]>(SAMPLE_PROJECT_FITS);
   const [recommendedProjects, setRecommendedProjects] = useState<RecommendedProject[]>(SAMPLE_RECOMMENDED_PROJECTS);
   const [appPackage, setAppPackage] = useState<ApplicationPackage>(SAMPLE_APPLICATION_PACKAGE);
+  const [interviewQuestions, setInterviewQuestions] = useState<InterviewQuestionItem[]>([]);
 
   // Loading & status banners
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
@@ -112,6 +120,24 @@ function MainContent() {
     setCurrentJob(job);
   };
 
+  const handleSelectSavedPlan = (planData: any) => {
+    if (!planData) return;
+    setOverallScore(planData.overallScore || 74);
+    setGithubScore(planData.githubScore || 78);
+    setResumeAtsScore(planData.resumeAtsScore || 70);
+    setVerdict(planData.verdict || 'Partial Match');
+    setGithubVerdict(planData.githubVerdict || 'Partial Match');
+    setResumeVerdict(planData.resumeVerdict || 'Partial Match');
+    if (planData.projectFits) setProjectFits(planData.projectFits);
+    if (planData.recommendedProjects) setRecommendedProjects(planData.recommendedProjects);
+    if (planData.appPackage) setAppPackage(planData.appPackage);
+    if (planData.interviewQuestions) setInterviewQuestions(planData.interviewQuestions);
+    if (planData.job) setCurrentJob(planData.job);
+    setHasAnalyzed(true);
+    setActivePage('results');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // Manual Trigger Handler: Opens dedicated Results Page and runs analysis
   const handleStartProcess = () => {
     setActivePage('results');
@@ -158,6 +184,12 @@ function MainContent() {
       }
 
       setAnalysisStatusText('Evaluating project match against job requirements & company tech stack...');
+      let finalGhScore = githubScore;
+      let finalResScore = resumeAtsScore;
+      let finalOverallScore = overallScore;
+      let finalVerdict = verdict;
+      let finalFits = projectFits;
+
       try {
         const fitRes = await fetchWithTimeout('/api/analysis/fit', {
           method: 'POST',
@@ -169,20 +201,25 @@ function MainContent() {
           const fitData = await fitRes.json();
           if (fitData.success && fitData.fitAnalysis) {
             currentFitAnalysis = fitData.fitAnalysis;
-            setOverallScore(fitData.fitAnalysis.overallScore || 74);
-            setGithubScore(fitData.fitAnalysis.githubScore || 78);
-            setResumeAtsScore(fitData.fitAnalysis.resumeAtsScore || 70);
-            setVerdict(fitData.fitAnalysis.verdict || 'Partial Match');
+            finalOverallScore = fitData.fitAnalysis.overallScore || 74;
+            finalGhScore = fitData.fitAnalysis.githubScore || 78;
+            finalResScore = fitData.fitAnalysis.resumeAtsScore || 70;
+            finalVerdict = fitData.fitAnalysis.verdict || 'Partial Match';
+
+            setOverallScore(finalOverallScore);
+            setGithubScore(finalGhScore);
+            setResumeAtsScore(finalResScore);
+            setVerdict(finalVerdict);
             setGithubVerdict(fitData.fitAnalysis.githubVerdict || 'Partial Match');
             setResumeVerdict(fitData.fitAnalysis.resumeVerdict || 'Partial Match');
             if (Array.isArray(fitData.fitAnalysis.projectFits) && fitData.fitAnalysis.projectFits.length > 0) {
-              setProjectFits(fitData.fitAnalysis.projectFits);
+              finalFits = fitData.fitAnalysis.projectFits;
+              setProjectFits(finalFits);
             }
           }
         }
       } catch (e) {
         console.warn('Fit analysis fetch fallback:', e);
-        // Set real candidate repos in project fits fallback
         const fallbackFits: ProjectFit[] = currentRepos.map((r, i) => ({
           id: r.id || `repo-${i}`,
           projectName: r.name,
@@ -191,12 +228,14 @@ function MainContent() {
           readmeSummary: r.description || `Repository focusing on ${(r.techStack || []).join(', ') || 'software engineering'}.`,
           reasoning: `Repository "${r.name}" (${(r.techStack || []).join(', ') || 'code'}) evaluated against target job requirements for ${targetJob.title}.`,
         }));
+        finalFits = fallbackFits;
         setProjectFits(fallbackFits);
       }
 
+      let finalRoadmap = recommendedProjects;
       setAnalysisStatusText('Generating 3-step project build roadmap to close identified skill gaps...');
       try {
-        const roadRes = await fetchWithTimeout('/api/analysis/roadmap', {
+        const roadRes = await fetchWithTimeout('/api/roadmap/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -209,17 +248,39 @@ function MainContent() {
 
         if (roadRes.ok) {
           const roadData = await roadRes.json();
-          if (roadData.success && Array.isArray(roadData.roadmap) && roadData.roadmap.length > 0) {
-            setRecommendedProjects(roadData.roadmap);
+          if (roadData.success && Array.isArray(roadData.recommendedProjects) && roadData.recommendedProjects.length > 0) {
+            finalRoadmap = roadData.recommendedProjects;
+            setRecommendedProjects(finalRoadmap);
           }
         }
       } catch (e) {
         console.warn('Roadmap fetch fallback:', e);
       }
 
+      setAnalysisStatusText('Generating 5 target job technical interview questions & STAR answers...');
+      let finalQuestions = interviewQuestions;
+      try {
+        const qRes = await fetchWithTimeout('/api/analysis/interview-prep', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ job: targetJob, repos: currentRepos }),
+        }, 8000);
+
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          if (qData.success && Array.isArray(qData.questions) && qData.questions.length > 0) {
+            finalQuestions = qData.questions;
+            setInterviewQuestions(finalQuestions);
+          }
+        }
+      } catch (e) {
+        console.warn('Interview prep fetch fallback:', e);
+      }
+
+      let finalPkg = appPackage;
       setAnalysisStatusText('Drafting tailored cold email & LinkedIn recruiter outreach message...');
       try {
-        const pkgRes = await fetchWithTimeout('/api/analysis/outreach', {
+        const pkgRes = await fetchWithTimeout('/api/package/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ job: targetJob, repos: currentRepos }),
@@ -228,11 +289,37 @@ function MainContent() {
         if (pkgRes.ok) {
           const pkgData = await pkgRes.json();
           if (pkgData.success && pkgData.applicationPackage) {
-            setAppPackage(pkgData.applicationPackage);
+            finalPkg = pkgData.applicationPackage;
+            setAppPackage(finalPkg);
           }
         }
       } catch (e) {
         console.warn('Outreach package fetch fallback:', e);
+      }
+
+      // Auto-save to Cloud Firestore if signed in
+      if (currentUser) {
+        saveBuildPlanToCloud(currentUser.uid, {
+          companyName: targetJob.company || 'Target Company',
+          jobTitle: targetJob.title || 'Software Engineer',
+          overallScore: finalOverallScore,
+          githubScore: finalGhScore,
+          resumeAtsScore: finalResScore,
+          verdict: finalVerdict,
+          data: {
+            overallScore: finalOverallScore,
+            githubScore: finalGhScore,
+            resumeAtsScore: finalResScore,
+            verdict: finalVerdict,
+            githubVerdict,
+            resumeVerdict,
+            projectFits: finalFits,
+            recommendedProjects: finalRoadmap,
+            appPackage: finalPkg,
+            interviewQuestions: finalQuestions,
+            job: targetJob,
+          },
+        });
       }
 
     } finally {
@@ -250,6 +337,7 @@ function MainContent() {
         onNavigate={setActivePage}
         onSignInClick={() => openAuthModal('signin')}
         onSignUpClick={() => openAuthModal('signup')}
+        onOpenSavedPlans={() => setSavedPlansModalOpen(true)}
       />
 
       {/* Analysis Loading Indicator Banner */}
@@ -392,6 +480,10 @@ function MainContent() {
                   overallScore={overallScore}
                 />
 
+                {interviewQuestions.length > 0 && (
+                  <InterviewPrepSection questions={interviewQuestions} />
+                )}
+
                 <ApplicationPackageSection
                   appPackage={appPackage}
                   currentStatus={applicationStatus}
@@ -419,12 +511,18 @@ function MainContent() {
         </div>
       </footer>
 
-      {/* Authentication Modal */}
+      {/* Modals */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         initialTab={authModalTab}
         onAuthSuccess={() => setActivePage('intake')}
+      />
+
+      <SavedPlansModal
+        isOpen={savedPlansModalOpen}
+        onClose={() => setSavedPlansModalOpen(false)}
+        onSelectPlan={handleSelectSavedPlan}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RecommendedProject } from '../types';
-import { ChevronDown, ChevronUp, Clock, ExternalLink, CheckCircle2, Award, Sparkles, BookOpen, Layers } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, ExternalLink, CheckCircle2, Award, Sparkles, BookOpen, Layers, Terminal, Copy, Check, Code2 } from 'lucide-react';
 import { SAMPLE_RECOMMENDED_PROJECTS } from '../data/sampleData';
 
 interface RoadmapSectionProps {
@@ -111,6 +111,8 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
   overallScore = 74,
 }) => {
   const [activeTab, setActiveTab] = useState<'build' | 'resume-mastery'>('build');
+  const [copiedCli, setCopiedCli] = useState(false);
+  const [copiedBoilerplate, setCopiedBoilerplate] = useState(false);
 
   const fullProjectsList = Array.isArray(recommendedProjects) && recommendedProjects.length > 0
     ? recommendedProjects
@@ -392,6 +394,76 @@ export const RoadmapSection: React.FC<RoadmapSectionProps> = ({
                                   </div>
                                 </div>
                               ))}
+                            </div>
+
+                            {/* ⚡ 1-Click Project Scaffold Box */}
+                            <div className="pt-4 border-t border-[#3D6FB4]/40 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-6 h-6 rounded bg-[#F2A93B]/20 border border-[#F2A93B]/40 flex items-center justify-center text-[#F2A93B]">
+                                    <Terminal className="w-3.5 h-3.5" />
+                                  </div>
+                                  <h5 className="font-display font-bold text-sm text-[#F2F0E6]">
+                                    ⚡ 1-Click Project Boilerplate Scaffold
+                                  </h5>
+                                </div>
+                                <span className="text-[10px] font-mono-data uppercase bg-[#3D6FB4]/30 text-[#4FA87B] border border-[#3D6FB4] px-2 py-0.5 rounded font-bold">
+                                  Ready to Build
+                                </span>
+                              </div>
+
+                              {/* Terminal CLI Command */}
+                              <div className="bg-[#0b192c] border border-[#3D6FB4] rounded-md p-3 flex items-center justify-between gap-3 text-xs font-mono-data">
+                                <div className="flex items-center space-x-2 truncate">
+                                  <span className="text-[#F2A93B] font-bold">$</span>
+                                  <code className="text-[#F2F0E6] truncate">
+                                    npx create-nextbuild-app --template {project.techStack[0]?.toLowerCase() || 'fastapi'} --project "{project.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}"
+                                  </code>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(`npx create-nextbuild-app --template ${project.techStack[0]?.toLowerCase() || 'fastapi'} --project "${project.title.toLowerCase().replace(/[^a-z0-9]/g, '-')}"`);
+                                    setCopiedCli(true);
+                                    setTimeout(() => setCopiedCli(false), 2000);
+                                  }}
+                                  className="px-2.5 py-1 bg-[#3D6FB4]/30 hover:bg-[#3D6FB4]/60 text-[#F2F0E6] rounded border border-[#3D6FB4] transition-colors cursor-pointer shrink-0 flex items-center space-x-1 text-[11px]"
+                                >
+                                  {copiedCli ? <Check className="w-3.5 h-3.5 text-[#4FA87B]" /> : <Copy className="w-3.5 h-3.5 text-[#7C93AC]" />}
+                                  <span>{copiedCli ? 'Copied CLI!' : 'Copy Command'}</span>
+                                </button>
+                              </div>
+
+                              {/* Starter Code Preview */}
+                              <div className="bg-[#0b192c] border border-[#3D6FB4] rounded-md p-3 text-xs font-mono-data space-y-2">
+                                <div className="flex items-center justify-between text-[#7C93AC] text-[11px] pb-1 border-b border-[#3D6FB4]/30">
+                                  <span>Starter Template Files (`main.py` & `docker-compose.yml`)</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const boilerplateCode = `# NextBuild Starter Template: ${project.title}\n# Stack: ${project.techStack.join(', ')}\n\nfrom fastapi import FastAPI\nimport redis\n\napp = FastAPI(title="${project.title}")\nr = redis.Redis(host='redis', port=6379, db=0)\n\n@app.get("/health")\ndef health_check():\n    return {"status": "ok", "project": "${project.title}"}\n`;
+                                      navigator.clipboard.writeText(boilerplateCode);
+                                      setCopiedBoilerplate(true);
+                                      setTimeout(() => setCopiedBoilerplate(false), 2000);
+                                    }}
+                                    className="text-[#F2A93B] hover:underline cursor-pointer flex items-center space-x-1"
+                                  >
+                                    {copiedBoilerplate ? <Check className="w-3.5 h-3.5 text-[#4FA87B]" /> : <Copy className="w-3.5 h-3.5" />}
+                                    <span>{copiedBoilerplate ? 'Copied Boilerplate!' : 'Copy Code'}</span>
+                                  </button>
+                                </div>
+                                <pre className="text-[#7C93AC] overflow-x-auto text-[11px] leading-relaxed">
+{`# NextBuild Starter Template: ${project.title}
+from fastapi import FastAPI
+import redis
+
+app = FastAPI(title="${project.title}")
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "project": "${project.title}"}`}
+                                </pre>
+                              </div>
                             </div>
                           </>
                         );

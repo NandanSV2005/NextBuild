@@ -10,6 +10,7 @@ import {
   generateGithubRoadmap,
   generateResumeRoadmap,
   combineScores,
+  generateInterviewPrep,
   RepoInput,
 } from "./src/services/fitEngine";
 import {
@@ -530,6 +531,21 @@ app.post("/api/roadmap/generate", optionalAuthMiddleware, async (req: any, res) 
   } catch (error: any) {
     console.error("Roadmap generate error:", error.message);
     return res.status(500).json({ error: "Failed to generate roadmap", details: error.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 8b. Technical Interview Question Generator
+// -----------------------------------------------------------------------------
+app.post("/api/analysis/interview-prep", optionalAuthMiddleware, async (req: any, res) => {
+  const { job, repos } = req.body;
+  try {
+    const ai = getGeminiClient();
+    const questions = await generateInterviewPrep(job || {}, repos || [], ai);
+    return res.json({ success: true, questions });
+  } catch (error: any) {
+    console.error("Interview prep error:", error.message);
+    return res.status(500).json({ error: "Failed to generate interview questions", details: error.message });
   }
 });
 

@@ -747,3 +747,146 @@ export function combineScores(
     resumeVerdict: getV(resumeAtsScore),
   };
 }
+
+export interface InterviewQuestionItem {
+  id: string;
+  question: string;
+  targetCategory: 'System Architecture' | 'Concurrency & Async' | 'Database Schema' | 'API Design' | 'Testing & CI/CD';
+  recruiterRationale: string;
+  starAnswer: {
+    situation: string;
+    task: string;
+    action: string;
+    result: string;
+  };
+}
+
+export async function generateInterviewPrep(
+  job: JobInput,
+  repos: RepoInput[],
+  aiClient?: any
+): Promise<InterviewQuestionItem[]> {
+  const fallbackQuestions: InterviewQuestionItem[] = [
+    {
+      id: 'q-1',
+      question: `In your top GitHub repository, how did you structure asynchronous request handling and database migrations?`,
+      targetCategory: 'System Architecture',
+      recruiterRationale: `Interviewers at ${job.company || 'target company'} assess whether you understand production API throughput and database consistency.`,
+      starAnswer: {
+        situation: `Building microservices targeting high-throughput request handling for ${job.title || 'engineering role'}.`,
+        task: `Ensure zero-downtime database updates and non-blocking I/O during peak telemetry spikes.`,
+        action: `Implemented FastAPI async route handlers, connection pooling with asyncpg, and Alembic migration scripts.`,
+        result: `Achieved sub-50ms API response latency and 99.9% uptime during telemetry stress tests.`,
+      },
+    },
+    {
+      id: 'q-2',
+      question: `How do you handle API rate limiting, background queues, and failure retries when calling third-party services?`,
+      targetCategory: 'Concurrency & Async',
+      recruiterRationale: `Tests your understanding of distributed systems resilience and queue workers.`,
+      starAnswer: {
+        situation: `Handling fluctuating external API rate limits and network timeouts.`,
+        task: `Prevent cascading failures and user-facing 500 server errors.`,
+        action: `Integrated Redis message queues (RQ/Celery) with exponential backoff retries and circuit breaker patterns.`,
+        result: `Eliminated API dropouts and successfully handled 10,000+ queued background jobs without data loss.`,
+      },
+    },
+    {
+      id: 'q-3',
+      question: `Walk me through your unit testing strategy and CI/CD workflow for your repositories.`,
+      targetCategory: 'Testing & CI/CD',
+      recruiterRationale: `Assesses production readiness and automated quality assurance habits.`,
+      starAnswer: {
+        situation: `Maintaining code quality across multi-contributor commits.`,
+        task: `Catch regressions automatically before merging to main branch.`,
+        action: `Configured GitHub Actions CI workflows running PyTest/Vitest, pre-commit linting, and Docker container builds.`,
+        result: `Maintained 85%+ code coverage and zero broken deployment regressions across 50+ commit iterations.`,
+      },
+    },
+    {
+      id: 'q-4',
+      question: `How do you design RESTful API schemas and handle authentication tokens securely?`,
+      targetCategory: 'API Design',
+      recruiterRationale: `Evaluates API security fundamentals (JWT, CORS, authorization middleware).`,
+      starAnswer: {
+        situation: `Securing user profile data and API endpoints against unauthorized access.`,
+        task: `Implement stateless token authentication with token revocation capabilities.`,
+        action: `Used short-lived JWT access tokens alongside HTTP-only refresh tokens and role-based access middleware.`,
+        result: `Protected all internal API routes against unauthorized access and CSRF vulnerabilities.`,
+      },
+    },
+    {
+      id: 'q-5',
+      question: `How would you optimize database queries when dealing with relational joins and index performance?`,
+      targetCategory: 'Database Schema',
+      recruiterRationale: `Tests database schema normalization and SQL optimization skills.`,
+      starAnswer: {
+        situation: `Scaling relational query speeds as dataset size grows.`,
+        task: `Reduce slow query execution times on complex joins.`,
+        action: `Analyzed EXPLAIN ANALYZE execution plans, added composite B-Tree indexes, and avoided N+1 query patterns.`,
+        result: `Reduced database query execution times by 70% under simulated load.`,
+      },
+    },
+  ];
+
+  try {
+    let ai = aiClient;
+    if (!ai) {
+      const apiKey = process.env.GEMINI_API_KEY || "MISSING_KEY";
+      ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: { headers: { "User-Agent": "aistudio-build" } },
+      });
+    }
+
+    const interviewPrompt = `Generate exactly 5 highly specific technical interview questions and model STAR answers for a candidate applying to "${job.title || 'Software Engineer'}" at "${job.company || 'Target Company'}".
+
+Candidate Repositories: ${JSON.stringify(repos || [])}
+Target Job: ${JSON.stringify(job || {})}
+
+Return a JSON array matching the schema with 5 items.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: interviewPrompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            questions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  targetCategory: { type: Type.STRING },
+                  recruiterRationale: { type: Type.STRING },
+                  starAnswer: {
+                    type: Type.OBJECT,
+                    properties: {
+                      situation: { type: Type.STRING },
+                      task: { type: Type.STRING },
+                      action: { type: Type.STRING },
+                      result: { type: Type.STRING },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    if (Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+      return parsed.questions;
+    }
+    return fallbackQuestions;
+  } catch (err) {
+    console.warn("Interview prep generation fallback:", err);
+    return fallbackQuestions;
+  }
+}

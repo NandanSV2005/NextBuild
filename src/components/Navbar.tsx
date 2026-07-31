@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { User, LogOut, Sparkles } from 'lucide-react';
+import { User, LogOut, FolderKanban } from 'lucide-react';
 
 interface NavbarProps {
   activePage: 'landing' | 'intake' | 'results';
@@ -8,6 +8,7 @@ interface NavbarProps {
   onNavigate: (page: 'landing' | 'intake' | 'results') => void;
   onSignInClick: () => void;
   onSignUpClick: () => void;
+  onOpenSavedPlans: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -16,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigate,
   onSignInClick,
   onSignUpClick,
+  onOpenSavedPlans,
 }) => {
   const { currentUser, logout } = useAuth();
 
@@ -73,7 +75,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right side navigation / Auth buttons */}
         <div className="flex items-center space-x-3 sm:space-x-4">
           {currentUser ? (
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2.5">
+              <button
+                type="button"
+                onClick={onOpenSavedPlans}
+                className="px-3 py-1.5 bg-[#3D6FB4]/20 hover:bg-[#3D6FB4]/40 text-[#F2F0E6] hover:text-[#F2A93B] border border-[#3D6FB4] rounded-md text-xs font-body font-semibold transition-colors cursor-pointer flex items-center space-x-1.5"
+              >
+                <FolderKanban className="w-3.5 h-3.5 text-[#F2A93B]" />
+                <span className="hidden sm:inline">Saved Plans</span>
+              </button>
+
               <div className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-[#10253F] border border-[#3D6FB4] rounded-full text-xs font-mono-data text-[#F2F0E6]">
                 <User className="w-3.5 h-3.5 text-[#F2A93B]" />
                 <span className="truncate max-w-[120px]">{currentUser.displayName || currentUser.email}</span>
