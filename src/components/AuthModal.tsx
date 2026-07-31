@@ -25,11 +25,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [showSwitchToSignUp, setShowSwitchToSignUp] = useState(false);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setShowSwitchToSignUp(false);
     setLoading(true);
 
     try {
@@ -55,11 +58,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       if (
         err.code === 'auth/user-not-found' ||
         err.code === 'auth/wrong-password' ||
-        err.code === 'auth/invalid-credential'
+        err.code === 'auth/invalid-credential' ||
+        (err.message && err.message.includes('invalid-credential'))
       ) {
-        msg = activeTab === 'signin'
-          ? 'No account found with this email or password is incorrect. Please click "Create Account" tab above to register!'
-          : 'Invalid authentication credentials provided.';
+        if (activeTab === 'signin') {
+          msg = `No registered account found for "${email || 'this email'}". You must create an account first.`;
+          setShowSwitchToSignUp(true);
+        } else {
+          msg = 'Invalid authentication credentials provided.';
+        }
       } else if (err.code === 'auth/email-already-in-use') {
         msg = 'An account with this email already exists. Click "Sign In" tab above to log in!';
       } else if (err.code === 'auth/invalid-email') {
@@ -159,9 +166,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Error Alert */}
         {error && (
-          <div className="p-3 bg-[#C4634F]/20 border border-[#C4634F]/50 rounded-lg text-xs font-body text-[#F2F0E6] flex items-start space-x-2">
-            <AlertCircle className="w-4 h-4 text-[#C4634F] shrink-0 mt-0.5" />
-            <span>{error}</span>
+          <div className="p-3 bg-[#C4634F]/20 border border-[#C4634F]/50 rounded-lg text-xs font-body text-[#F2F0E6] space-y-2">
+            <div className="flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-[#C4634F] shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+
+            {showSwitchToSignUp && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('signup');
+                  setError(null);
+                  setShowSwitchToSignUp(false);
+                }}
+                className="w-full py-2 px-3 bg-[#F2A93B] hover:bg-[#f5b857] text-[#10253F] font-body font-bold rounded text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm mt-1"
+              >
+                <span>Switch & Create New Account</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         )}
 
