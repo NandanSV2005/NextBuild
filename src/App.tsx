@@ -39,7 +39,7 @@ function MainContent() {
   const [savedPlansModalOpen, setSavedPlansModalOpen] = useState<boolean>(false);
 
   const handleNavigateToInterviewPrep = () => {
-    setActivePage('results');
+    setActivePage('interview-prep');
     setTimeout(() => {
       const el = document.getElementById('step-interview-prep');
       if (el) {
