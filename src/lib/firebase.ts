@@ -3,12 +3,12 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPasswor
 import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, orderBy } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDemoKeyForDevelopmentOnlyNextBuild",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyB8EsAZ_gAmV5zw0b-zWNQI7WiTiyiQkBg",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "nextbuild-app.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "nextbuild-app",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "nextbuild-app.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "100000000000",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:100000000000:web:abcdef123456",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "nextbuild-app.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "789954259714",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:789954259714:web:58a8644c0e5a79151ff01b",
 };
 
 // Initialize Firebase once

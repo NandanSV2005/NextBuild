@@ -34,32 +34,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email?.split('@')[0] || 'User',
-          photoURL: user.photoURL,
-          isGuest: false,
-        });
-      } else {
-        // Check if local guest session active
-        const savedGuest = localStorage.getItem('nextbuild_guest_user');
-        if (savedGuest) {
-          try {
-            setCurrentUser(JSON.parse(savedGuest));
-          } catch {
+    let mounted = true;
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false);
+    }, 1500);
+
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        if (!mounted) return;
+        if (user) {
+          setCurrentUser({
+            uid: user.uid,
+            email: user.email,
+            displayName: user.displayName || user.email?.split('@')[0] || 'User',
+            photoURL: user.photoURL,
+            isGuest: false,
+          });
+        } else {
+          // Check if local guest session active
+          const savedGuest = localStorage.getItem('nextbuild_guest_user');
+          if (savedGuest) {
+            try {
+              setCurrentUser(JSON.parse(savedGuest));
+            } catch {
+              setCurrentUser(null);
+            }
+          } else {
             setCurrentUser(null);
           }
-        } else {
-          setCurrentUser(null);
         }
+        setLoading(false);
+        clearTimeout(safetyTimer);
+      },
+      (err) => {
+        console.warn('onAuthStateChanged fallback:', err);
+        if (mounted) setLoading(false);
+        clearTimeout(safetyTimer);
       }
-      setLoading(false);
-    });
+    );
 
-    return () => unsubscribe();
+    return () => {
+      mounted = false;
+      unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const loginWithEmail = async (email: string, pass: string) => {

@@ -28,7 +28,7 @@ import { JobPosting, Repo, ProjectFit, RecommendedProject, ApplicationPackage, A
 import { Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 function MainContent() {
-  const { currentUser } = useAuth();
+  const { currentUser, loading } = useAuth();
 
   // Page Navigation State ('landing' | 'intake' | 'results' | 'interview-prep')
   const [activePage, setActivePage] = useState<'landing' | 'intake' | 'results' | 'interview-prep'>('landing');
@@ -61,11 +61,11 @@ function MainContent() {
   };
 
   useEffect(() => {
-    if (!currentUser && activePage !== 'landing') {
+    if (!loading && !currentUser && activePage !== 'landing') {
       setActivePage('landing');
       openAuthModal('signin');
     }
-  }, [currentUser, activePage]);
+  }, [currentUser, loading, activePage]);
 
   // State management (starts clean without preloaded resume or GitHub)
   const [selectedResume, setSelectedResume] = useState<string | null>(null);
